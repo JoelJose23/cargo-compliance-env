@@ -12,7 +12,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . . 
 
 #5.Exposing hugginfaces favourite port
-EXPOSE 7860
+EXPOSE 7680
 
 #6.The command to kick off the FastAPI server
 CMD ["uvicorn","main:app","--host","0.0.0.0","--port","7680"]
