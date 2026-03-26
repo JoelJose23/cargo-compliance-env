@@ -1,0 +1,76 @@
+{
+  "radioactive_material_trade_rules": {
+    "global_framework": {
+      "authority": "International Atomic Energy Agency (IAEA)",
+      "requirements": [
+        "Import and export licensing",
+        "Prior notification and consent",
+        "End-use verification",
+        "Secure transport and packaging",
+        "Non-proliferation compliance"
+      ]
+    },
+    "countries": [
+      {
+        "name": "India"
+      },
+      {
+        "name": "United States"
+      },
+      {
+        "name": "European Union"
+      },
+      {
+        "name": "China"
+      },
+      {
+        "name": "Japan"
+      },
+      {
+        "name": "United Kingdom"
+      },
+      {
+        "name": "Germany"
+      },
+      {
+        "name": "France"
+      },
+      {
+        "name": "Australia"
+      },
+      {
+        "name": "Canada"
+      },
+      {
+        "name": "Brazil"
+      },
+      {
+        "name": "Russia"
+      },
+      {
+        "name": "South Africa"
+      },
+      {
+        "name": "Singapore"
+      },
+      {
+        "name": "United Arab Emirates"
+      },
+      {
+        "name": "Saudi Arabia"
+      },
+      {
+        "name": "South Korea"
+      },
+      {
+        "name": "Mexico"
+      },
+      {
+        "name": "Indonesia"
+      },
+      {
+        "name": "Nigeria"
+      }
+    ]
+  }
+}
