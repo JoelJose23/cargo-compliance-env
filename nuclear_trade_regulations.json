@@ -1,0 +1,138 @@
+{
+  "industry": "Radioactive Materials and Nuclear Goods",
+  "global_standards": "IAEA SSR-6 (Regulations for the Safe Transport of Radioactive Material)",
+  "countries": [
+    {
+      "name": "India",
+      "nuclear_regulator": "Atomic Energy Regulatory Board (AERB)",
+      "laws": [
+        "Atomic Energy Act 1962",
+        "Customs Act 1962",
+        "Foreign Trade Policy 2023"
+      ],
+      "import_rules": {
+        "iec_required": true,
+        "classification": "ITC-HS Chapter 28",
+        "categories": [
+          "Restricted",
+          "Canalized"
+        ],
+        "special_permits": [
+          "NOC from AERB",
+          "DGFT Import License"
+        ],
+        "duties": [
+          "Basic Customs Duty",
+          "IGST"
+        ],
+        "documents": [
+          "Bill of Entry",
+          "Radiation Safety Certificate",
+          "Source Certificate"
+        ]
+      },
+      "export_rules": {
+        "controls": [
+          "SCOMET Category 0 (Nuclear materials)"
+        ],
+        "documents": [
+          "Shipping Bill",
+          "Export Authorization from Dept of Atomic Energy"
+        ]
+      }
+    },
+    {
+      "name": "United States",
+      "nuclear_regulator": "Nuclear Regulatory Commission (NRC)",
+      "laws": [
+        "Atomic Energy Act of 1954",
+        "Export Administration Regulations (EAR)"
+      ],
+      "import_rules": {
+        "classification": "HTS 2844",
+        "license_required": "NRC Import License (Specific or General)",
+        "importer_of_record": "Required",
+        "documents": [
+          "Customs Entry Filing",
+          "NRC Form 7"
+        ]
+      },
+      "export_rules": {
+        "license_required": "NRC Export License",
+        "controls": [
+          "OFAC Sanctions",
+          "Dual-use technology (BIS/EAR)"
+        ]
+      }
+    },
+    {
+      "name": "European Union",
+      "nuclear_regulator": "Euratom / National Nuclear Safety Authorities",
+      "laws": [
+        "Euratom Treaty",
+        "Union Customs Code"
+      ],
+      "import_rules": {
+        "single_system": true,
+        "compliance": [
+          "Radiation Protection Standards",
+          "IAEA SSR-6"
+        ],
+        "taxes": [
+          "VAT"
+        ],
+        "documents": [
+          "Import Declaration",
+          "Euratom Shipment Approval"
+        ]
+      },
+      "export_rules": {
+        "controls": [
+          "Dual-use items regulation",
+          "Forced labor goods ban"
+        ]
+      }
+    },
+    {
+      "name": "Canada",
+      "nuclear_regulator": "Canadian Nuclear Safety Commission (CNSC)",
+      "laws": [
+        "Nuclear Safety and Control Act",
+        "Customs Act"
+      ],
+      "import_rules": {
+        "license_required": "CNSC Import Licence",
+        "taxes": [
+          "GST",
+          "HST"
+        ],
+        "declaration_required": true
+      },
+      "export_rules": {
+        "permits_required": "CNSC Export Licence",
+        "controls": [
+          "Nuclear Non-Proliferation Treaty compliance"
+        ]
+      }
+    },
+    {
+      "name": "Australia",
+      "nuclear_regulator": "ARPANSA / ASNO",
+      "laws": [
+        "ARPANS Act 1998",
+        "Customs Act 1901"
+      ],
+      "import_rules": {
+        "permits_required": "ARPANSA Import Permit",
+        "biosecurity": "High level monitoring",
+        "tax": "GST"
+      },
+      "export_rules": {
+        "declaration_required": true,
+        "controls": [
+          "Safeguards and non-proliferation permits"
+        ]
+      }
+    }
+  ]
+}
