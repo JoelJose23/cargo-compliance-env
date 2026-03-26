@@ -1,0 +1,343 @@
+{
+  "countries": [
+    {
+      "name": "India",
+      "laws": [
+        "Customs Act 1962",
+        "Foreign Trade (Development and Regulation) Act 1992",
+        "Foreign Trade Policy 2023"
+      ],
+      "import_rules": {
+        "iec_required": true,
+        "classification": "ITC-HS",
+        "categories": [
+          "Free",
+          "Restricted",
+          "Prohibited",
+          "Canalized"
+        ],
+        "license_required": true,
+        "duties": [
+          "Customs Duty",
+          "IGST"
+        ],
+        "documents": [
+          "Bill of Entry",
+          "Invoice",
+          "Packing List",
+          "Certificate of Origin"
+        ]
+      },
+      "export_rules": {
+        "documents": [
+          "Shipping Bill",
+          "Invoice"
+        ],
+        "controls": [
+          "SCOMET goods"
+        ]
+      }
+    },
+    {
+      "name": "United States",
+      "laws": [
+        "Tariff Act of 1930",
+        "Export Administration Regulations"
+      ],
+      "import_rules": {
+        "classification": "HTS",
+        "importer_of_record_required": true,
+        "documents": [
+          "Customs Entry Filing"
+        ],
+        "duties": true
+      },
+      "export_rules": {
+        "license_required": true,
+        "controls": [
+          "Sanctions (OFAC)",
+          "Dual-use goods"
+        ]
+      }
+    },
+    {
+      "name": "European Union",
+      "laws": [
+        "Union Customs Code"
+      ],
+      "import_rules": {
+        "single_system": true,
+        "documents": [
+          "Import Declaration"
+        ],
+        "taxes": [
+          "VAT"
+        ],
+        "compliance": [
+          "Product Safety Standards"
+        ]
+      },
+      "export_rules": {
+        "controls": [
+          "Forced labor goods ban"
+        ]
+      }
+    },
+    {
+      "name": "China",
+      "laws": [
+        "Customs Law of PRC"
+      ],
+      "import_rules": {
+        "declaration_required": true,
+        "license_required": true,
+        "duties": [
+          "Tariff",
+          "VAT"
+        ]
+      },
+      "export_rules": {
+        "controls": [
+          "Technology export restrictions"
+        ]
+      }
+    },
+    {
+      "name": "Japan",
+      "laws": [
+        "Customs Act"
+      ],
+      "import_rules": {
+        "declaration_required": true,
+        "tax": "Consumption Tax",
+        "standards": [
+          "Health",
+          "Safety"
+        ]
+      },
+      "export_rules": {
+        "controls": [
+          "Strategic goods"
+        ]
+      }
+    },
+    {
+      "name": "United Kingdom",
+      "laws": [
+        "Customs & Excise Management Act"
+      ],
+      "import_rules": {
+        "declaration_required": true,
+        "taxes": [
+          "VAT",
+          "Customs Duty"
+        ]
+      },
+      "export_rules": {
+        "license_required": true
+      }
+    },
+    {
+      "name": "Germany",
+      "laws": [
+        "EU Union Customs Code"
+      ],
+      "import_rules": {
+        "compliance": [
+          "Strict enforcement"
+        ]
+      },
+      "export_rules": {
+        "controls": [
+          "Industrial export controls"
+        ]
+      }
+    },
+    {
+      "name": "France",
+      "laws": [
+        "EU Union Customs Code"
+      ],
+      "import_rules": {
+        "controls": [
+          "Agricultural restrictions"
+        ]
+      },
+      "export_rules": {}
+    },
+    {
+      "name": "Australia",
+      "laws": [
+        "Customs Act 1901"
+      ],
+      "import_rules": {
+        "biosecurity": true,
+        "permits_required": true,
+        "tax": "GST"
+      },
+      "export_rules": {
+        "declaration_required": true
+      }
+    },
+    {
+      "name": "Canada",
+      "laws": [
+        "Customs Act"
+      ],
+      "import_rules": {
+        "declaration_required": true,
+        "taxes": [
+          "GST",
+          "HST"
+        ]
+      },
+      "export_rules": {
+        "permits_required": true
+      }
+    },
+    {
+      "name": "Brazil",
+      "laws": [
+        "SECEX Trade Law"
+      ],
+      "import_rules": {
+        "license_required": true,
+        "high_tariffs": true,
+        "system": "SISCOMEX"
+      },
+      "export_rules": {}
+    },
+    {
+      "name": "Russia",
+      "laws": [
+        "EAEU Customs Code"
+      ],
+      "import_rules": {
+        "duties": [
+          "Tariff",
+          "VAT"
+        ]
+      },
+      "export_rules": {
+        "controls": [
+          "Energy exports"
+        ]
+      }
+    },
+    {
+      "name": "South Africa",
+      "laws": [
+        "Customs and Excise Act"
+      ],
+      "import_rules": {
+        "permits_required": true,
+        "taxes": [
+          "VAT"
+        ]
+      },
+      "export_rules": {
+        "controls": [
+          "Minerals"
+        ]
+      }
+    },
+    {
+      "name": "Singapore",
+      "laws": [
+        "Customs Act"
+      ],
+      "import_rules": {
+        "low_tariffs": true,
+        "tax": "GST",
+        "digital_system": true
+      },
+      "export_rules": {}
+    },
+    {
+      "name": "United Arab Emirates",
+      "laws": [
+        "GCC Customs Law"
+      ],
+      "import_rules": {
+        "duty": "Low (~5%)",
+        "free_zones": true
+      },
+      "export_rules": {}
+    },
+    {
+      "name": "Saudi Arabia",
+      "laws": [
+        "GCC Customs Law"
+      ],
+      "import_rules": {
+        "taxes": [
+          "VAT"
+        ],
+        "restrictions": [
+          "Religious compliance"
+        ]
+      },
+      "export_rules": {
+        "license_required": true
+      }
+    },
+    {
+      "name": "South Korea",
+      "laws": [
+        "Customs Act"
+      ],
+      "import_rules": {
+        "fta_usage": true,
+        "compliance": [
+          "Strict standards"
+        ]
+      },
+      "export_rules": {}
+    },
+    {
+      "name": "Mexico",
+      "laws": [
+        "Customs Law"
+      ],
+      "import_rules": {
+        "permits_required": true,
+        "taxes": [
+          "VAT"
+        ]
+      },
+      "export_rules": {}
+    },
+    {
+      "name": "Indonesia",
+      "laws": [
+        "Customs Law No. 17/2006"
+      ],
+      "import_rules": {
+        "license_required": true,
+        "compliance": [
+          "High"
+        ]
+      },
+      "export_rules": {
+        "controls": [
+          "Raw materials"
+        ]
+      }
+    },
+    {
+      "name": "Nigeria",
+      "laws": [
+        "Customs and Excise Management Act"
+      ],
+      "import_rules": {
+        "bans": true,
+        "high_tariffs": true
+      },
+      "export_rules": {
+        "controls": [
+          "Foreign exchange"
+        ]
+      }
+    }
+  ]
+}
