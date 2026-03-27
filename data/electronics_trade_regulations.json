@@ -1,0 +1,202 @@
+{
+  "industry": "Electronics (Consumer, Industrial, and Dual-use Goods)",
+  "global_standards": [
+    "WCO Harmonized System (HS Codes - Chapter 84, 85)",
+    "IEC Standards (International Electrotechnical Commission)",
+    "WTO Trade Facilitation Agreement",
+    "RoHS (Restriction of Hazardous Substances)",
+    "WEEE (E-Waste Management)"
+  ],
+  "countries": [
+    {
+      "name": "India",
+      "electronics_regulator": "Ministry of Electronics and Information Technology (MeitY) / Bureau of Indian Standards (BIS)",
+      "laws": [
+        "Foreign Trade Policy 2023",
+        "Electronics and IT Goods (Requirements for Compulsory Registration) Order",
+        "Customs Act 1962",
+        "Legal Metrology Act 2009"
+      ],
+      "import_rules": {
+        "iec_required": true,
+        "classification": "ITC-HS Chapter 84 & 85",
+        "compliance": [
+          "BIS CRS Registration",
+          "WPC Approval (for wireless devices)"
+        ],
+        "categories": [
+          "Restricted (for certain telecom equipment)"
+        ],
+        "duties": [
+          "Basic Customs Duty",
+          "IGST",
+          "Social Welfare Surcharge"
+        ],
+        "documents": [
+          "Bill of Entry",
+          "BIS Certificate",
+          "Test Reports",
+          "Packing List",
+          "Commercial Invoice"
+        ]
+      },
+      "export_rules": {
+        "controls": [
+          "SCOMET (for dual-use electronics like semiconductors, telecom encryption items)"
+        ],
+        "incentives": [
+          "RoDTEP Scheme",
+          "SEZ Benefits"
+        ],
+        "documents": [
+          "Shipping Bill",
+          "Export Invoice",
+          "Packing List"
+        ]
+      }
+    },
+    {
+      "name": "United States",
+      "electronics_regulator": "Federal Communications Commission (FCC) / Bureau of Industry and Security (BIS)",
+      "laws": [
+        "Export Administration Regulations (EAR)",
+        "Communications Act of 1934",
+        "Tariff Act of 1930"
+      ],
+      "import_rules": {
+        "classification": "HTS Chapter 84 & 85",
+        "compliance": [
+          "FCC Certification (for wireless/EMI devices)"
+        ],
+        "importer_of_record": "Required",
+        "documents": [
+          "Customs Entry Filing",
+          "FCC Declaration of Conformity",
+          "Commercial Invoice",
+          "Packing List"
+        ]
+      },
+      "export_rules": {
+        "license_required": "For controlled electronics under EAR",
+        "controls": [
+          "Commerce Control List (CCL)",
+          "Dual-use restrictions (semiconductors, AI chips)",
+          "OFAC Sanctions"
+        ],
+        "documents": [
+          "Electronic Export Information (EEI)",
+          "Commercial Invoice"
+        ]
+      }
+    },
+    {
+      "name": "European Union",
+      "electronics_regulator": "European Commission / National Market Surveillance Authorities",
+      "laws": [
+        "CE Marking Directive",
+        "RoHS Directive",
+        "WEEE Directive",
+        "Union Customs Code"
+      ],
+      "import_rules": {
+        "single_system": true,
+        "classification": "CN Codes (Chapter 84 & 85)",
+        "compliance": [
+          "CE Marking",
+          "RoHS Compliance",
+          "REACH Regulation"
+        ],
+        "taxes": [
+          "VAT"
+        ],
+        "documents": [
+          "Import Declaration",
+          "Declaration of Conformity (DoC)",
+          "Technical File",
+          "Commercial Invoice"
+        ]
+      },
+      "export_rules": {
+        "controls": [
+          "EU Dual-Use Regulation",
+          "Sanctions Regulations"
+        ],
+        "documents": [
+          "Export Declaration",
+          "Commercial Invoice"
+        ]
+      }
+    },
+    {
+      "name": "Canada",
+      "electronics_regulator": "Innovation, Science and Economic Development Canada (ISED)",
+      "laws": [
+        "Radiocommunication Act",
+        "Customs Act",
+        "Canada Consumer Product Safety Act"
+      ],
+      "import_rules": {
+        "classification": "HS Chapter 84 & 85",
+        "compliance": [
+          "ISED Certification (for wireless devices)",
+          "ICES Standards (EMI compliance)"
+        ],
+        "taxes": [
+          "GST",
+          "HST"
+        ],
+        "documents": [
+          "Customs Declaration",
+          "Certification Documents",
+          "Commercial Invoice",
+          "Packing List"
+        ]
+      },
+      "export_rules": {
+        "permits_required": "For controlled dual-use electronics",
+        "controls": [
+          "Export Control List (ECL)",
+          "Wassenaar Arrangement compliance"
+        ],
+        "documents": [
+          "Export Declaration",
+          "Invoice"
+        ]
+      }
+    },
+    {
+      "name": "Australia",
+      "electronics_regulator": "Australian Communications and Media Authority (ACMA)",
+      "laws": [
+        "Radiocommunications Act 1992",
+        "Customs Act 1901",
+        "Australian Consumer Law"
+      ],
+      "import_rules": {
+        "classification": "HS Chapter 84 & 85",
+        "compliance": [
+          "RCM Mark (Regulatory Compliance Mark)",
+          "EMC Standards",
+          "Electrical Safety Standards"
+        ],
+        "permits_required": "For certain telecom equipment",
+        "tax": "GST",
+        "documents": [
+          "Import Declaration",
+          "Supplier Declaration of Conformity",
+          "Commercial Invoice"
+        ]
+      },
+      "export_rules": {
+        "controls": [
+          "Defence and Strategic Goods List (DSGL)",
+          "Dual-use electronics restrictions"
+        ],
+        "documents": [
+          "Export Declaration",
+          "Invoice"
+        ]
+      }
+    }
+  ]
+}
