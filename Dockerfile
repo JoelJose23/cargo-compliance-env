@@ -15,4 +15,4 @@ COPY . .
 EXPOSE 7860
 
 #6.The command to kick off the FastAPI server
-CMD ["uvicorn","main:app","--host","0.0.0.0","--port","7860"]
+CMD ["uvicorn","server/main:app","--host","0.0.0.0","--port","7860"]

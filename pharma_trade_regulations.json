@@ -1,0 +1,204 @@
+{
+  "industry": "Pharmaceutical Drugs (Finished Formulations, APIs, Controlled Substances)",
+  "global_standards": [
+    "WHO Good Manufacturing Practices (GMP)",
+    "ICH Guidelines (International Council for Harmonisation)",
+    "WTO TRIPS Agreement",
+    "UN Single Convention on Narcotic Drugs",
+    "Pharmacovigilance Standards"
+  ],
+  "countries": [
+    {
+      "name": "India",
+      "drug_regulator": "CDSCO (Central Drugs Standard Control Organization)",
+      "laws": [
+        "Drugs and Cosmetics Act 1940",
+        "NDPS Act 1985",
+        "Foreign Trade Policy 2023",
+        "Customs Act 1962"
+      ],
+      "import_rules": {
+        "license_required": true,
+        "compliance": [
+          "Import License (Form 10/41)",
+          "Registration Certificate"
+        ],
+        "controlled_substances": [
+          "NDPS clearance required"
+        ],
+        "duties": [
+          "Basic Customs Duty",
+          "IGST"
+        ],
+        "documents": [
+          "Bill of Entry",
+          "Import License",
+          "Certificate of Analysis",
+          "Packing List",
+          "Commercial Invoice"
+        ]
+      },
+      "export_rules": {
+        "certifications": [
+          "Manufacturing License",
+          "WHO-GMP Certificate"
+        ],
+        "controls": [
+          "NDPS restrictions for narcotics",
+          "SCOMET (for certain APIs)"
+        ],
+        "documents": [
+          "Shipping Bill",
+          "Export Invoice",
+          "Certificate of Analysis"
+        ]
+      }
+    },
+    {
+      "name": "United States",
+      "drug_regulator": "FDA (Food and Drug Administration) / DEA",
+      "laws": [
+        "Federal Food, Drug, and Cosmetic Act",
+        "Controlled Substances Act",
+        "Export Administration Regulations (EAR)"
+      ],
+      "import_rules": {
+        "registration": "FDA Establishment Registration required",
+        "compliance": [
+          "Drug Listing",
+          "Prior Notice",
+          "cGMP compliance"
+        ],
+        "controlled_substances": [
+          "DEA permit required"
+        ],
+        "documents": [
+          "Customs Entry",
+          "FDA Documentation",
+          "Commercial Invoice",
+          "Packing List"
+        ]
+      },
+      "export_rules": {
+        "certifications": [
+          "FDA Approval",
+          "DEA Export Permit (if controlled)"
+        ],
+        "controls": [
+          "Controlled substances restrictions",
+          "Sanctions (OFAC)"
+        ],
+        "documents": [
+          "EEI Filing",
+          "Invoice"
+        ]
+      }
+    },
+    {
+      "name": "European Union",
+      "drug_regulator": "European Medicines Agency (EMA)",
+      "laws": [
+        "EU Pharmaceutical Directive",
+        "Good Distribution Practice (GDP)",
+        "EU Controlled Substances Regulations"
+      ],
+      "import_rules": {
+        "compliance": [
+          "EU GMP Certification",
+          "Marketing Authorization",
+          "Qualified Person (QP) Release"
+        ],
+        "controlled_substances": [
+          "Special authorization required"
+        ],
+        "documents": [
+          "Import Authorization",
+          "Batch Release Certificate",
+          "Commercial Invoice"
+        ]
+      },
+      "export_rules": {
+        "controls": [
+          "EU Dual-Use & Controlled Drug Regulations"
+        ],
+        "certifications": [
+          "GMP Certificate"
+        ],
+        "documents": [
+          "Export Declaration",
+          "Invoice"
+        ]
+      }
+    },
+    {
+      "name": "Canada",
+      "drug_regulator": "Health Canada",
+      "laws": [
+        "Food and Drugs Act",
+        "Controlled Drugs and Substances Act"
+      ],
+      "import_rules": {
+        "license_required": true,
+        "compliance": [
+          "Drug Establishment License (DEL)",
+          "GMP compliance"
+        ],
+        "controlled_substances": [
+          "Import permit required"
+        ],
+        "documents": [
+          "Import Declaration",
+          "DEL License",
+          "Commercial Invoice",
+          "Packing List"
+        ]
+      },
+      "export_rules": {
+        "certifications": [
+          "Health Canada Approval"
+        ],
+        "controls": [
+          "Controlled drugs export permit"
+        ],
+        "documents": [
+          "Export Declaration",
+          "Invoice"
+        ]
+      }
+    },
+    {
+      "name": "Australia",
+      "drug_regulator": "Therapeutic Goods Administration (TGA)",
+      "laws": [
+        "Therapeutic Goods Act 1989",
+        "Customs Act 1901"
+      ],
+      "import_rules": {
+        "compliance": [
+          "TGA Registration (ARTG)",
+          "GMP Certification"
+        ],
+        "controlled_substances": [
+          "Import permit required"
+        ],
+        "documents": [
+          "Import Declaration",
+          "TGA Approval",
+          "Commercial Invoice"
+        ]
+      },
+      "export_rules": {
+        "certifications": [
+          "TGA Export Certification"
+        ],
+        "controls": [
+          "Controlled substances restrictions"
+        ],
+        "documents": [
+          "Export Declaration",
+          "Invoice"
+        ]
+      }
+    }
+  ]
+}
