@@ -2,7 +2,7 @@ import random
 import uuid
 import json
 import os
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Tuple, Optional
 from groq import Groq
 from tenacity import retry, stop_after_attempt, wait_exponential
 from openenv.core.env_server import Environment
@@ -10,14 +10,13 @@ from models import Cargo_Action, Cargo_Observation, Cargo_FetchState, Cargo_Stat
 
 # --- Initialize Groq Client ---
 # Ensure you have 'GROQ_API_KEY' set in your environment variables/Docker secrets
-client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+client = Groq(api_key="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")
 
 AVAILABLE_LAWS = [
-    {"id": "AGRI_001", "name": "USDA Perishable Import Law", "category": "Agriculture"},
-    {"id": "BIO_SAFETY_02", "name": "Bio-Hazard Containment Act", "category": "Agriculture"},
-    {"id": "FLOWER_REG_01", "name": "CITES Floral Export Protocol", "category": "Flora"},
-    {"id": "CHEM_DUAL_01", "name": "Dual-Use Chemical Export Treaty", "category": "Chemical"},
-    {"id": "HAZMAT_TRANS_04", "name": "Hazardous Material Transport Act", "category": "Chemical"},
+    {"id": "AGRI_001", "name": "USDA Perishable Import Law", "category": "Food"},
+    {"id": "BIO_SAFETY_02", "name": "Bio-Hazard Containment Act", "category": "Food"},
+    {"id": "CHEM_DUAL_01", "name": "Dual-Use Chemical Export Treaty", "category": "Pharmaceutical"},
+    {"id": "HAZMAT_TRANS_04", "name": "Hazardous Material Transport Act", "category": "Pharmaceutical"},
     {"id": "TEXTILE_PEST_01", "name": "Vintage Textile Pest Control", "category": "Textile"},
     {"id": "ELECTRONIC_WASTE_04", "name": "E-Waste Disposal Mandate", "category": "Electronics"}
 ]
@@ -25,8 +24,7 @@ AVAILABLE_LAWS = [
 PROMPT_POOL = [
     {
         "text": "Shipping 200 units of Organic Cavendish from Ecuador to Rotterdam port.",
-        "truth": {
-            "goods": "Banana", 
+        "truth": { 
             "qty": "200 units", 
             "category": "Agriculture",
             "Destination": "Rotterdam", # Fixed: Was Ecuador
@@ -38,7 +36,6 @@ PROMPT_POOL = [
     {
         "text": "Emergency transport of 50kg Potassium Nitrate for industrial fertilizer from India to Dubai.",
         "truth": {
-            "goods": "Potassium Nitrate", 
             "qty": "50kg", 
             "category": "Chemical",
             "Destination": "Dubai",
@@ -52,7 +49,26 @@ PROMPT_POOL = [
 class CargoComplianceEnv(Environment):
     def __init__(self):
         self.sessions: Dict[str, Cargo_State] = {}
+        self.last_session_id:  Optional[str] = None
+    
+    def reset(self, seed = None, options = None) -> Tuple[Cargo_Observation, Dict[str, Any]]:
+        session_id, obs = self.create_task()
+        self.last_session_id = session_id
 
+        return obs, {"session_id":session_id}
+    
+    def state(self) -> Dict[str,Any]:
+        if not self.last_session_id or self.last_session_id not in self.sessions:
+            return {}
+        
+        state_obj = self.sessions[self.last_session_id]
+        return {
+            "phase":state_obj.phase,
+            "steps":state_obj.steps,
+            "questions_asked": state_obj.questions_asked,
+            "extraction_data": state_obj.extraction_data
+        }
+        
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
     async def get_llm_judge_score(self, reasoning: str, extraction: dict, truth: dict) -> float:
         """Calls Groq to audit the reasoning. Uses retry logic to prevent rate-limit crashes."""
@@ -86,13 +102,13 @@ class CargoComplianceEnv(Environment):
             history=[],
             phase="EXTRACTION",
             questions_asked=0,
-            extraction_data={"goods": None, "qty": None, "category": None, "Destination": None, "Origin": None, "laws": []}
+            extraction_data={"qty": None, "category": None, "Destination": None, "Origin": None, "laws": []}
         )
         state.ground_truth = selected_task["truth"]
         self.sessions[session_id] = state
         
         initial_obs = Cargo_Observation(
-            text=f"NEW SHIPMENT: {selected_task['text']}\nExtract into JSON: goods, qty, category, Destination, Origin. Max 3 questions. Penalty: -0.1/question, -1.0/wrong guess.",
+            text=f"NEW SHIPMENT: {selected_task['text']}\nExtract into JSON:qty, category, Destination, Origin. Max 3 questions. Penalty: -0.1/question, -1.0/wrong guess.",
             current_extraction=state.extraction_data,
             available_laws=[],
             manifest={"raw_text": selected_task["text"]},
@@ -110,7 +126,6 @@ class CargoComplianceEnv(Environment):
         truth = state.ground_truth
         reward = 0.0
         obs_text = ""
-        is_terminal = False
         state.steps += 1
 
         # --- PHASE 1: EXTRACTION ---
@@ -126,13 +141,18 @@ class CargoComplianceEnv(Environment):
             elif action.action_type == Cargo_FetchState.VERDICT:
                 try:
                     data = json.loads(action.decision)
+                    state.extraction_data.update(data)
+
+                    def clean(v): return str(v).strip().lower()
+
+                    is_correct = (
+                        clean(data.get("qty") == truth["qty"]) and 
+                        clean(data.get("category") == truth["category"]) and
+                        clean(data.get("Destination") == truth["Destination"]) and
+                        clean(data.get("Origin") == truth["Origin"]))
+                    
                     # Fixed: Added 'qty' validation and Destination/Origin checks
-                    if (data.get("goods") == truth["goods"] and 
-                        data.get("qty") == truth["qty"] and 
-                        data.get("category") == truth["category"] and
-                        data.get("Destination") == truth["Destination"] and
-                        data.get("Origin") == truth["Origin"]):
-                        
+                    if is_correct:
                         reward = 1.0 - (state.questions_asked * 0.1)
                         state.phase = "SELECTION"
                         state.extraction_data.update(data)
@@ -141,7 +161,7 @@ class CargoComplianceEnv(Environment):
                         reward = -1.0
                         obs_text = "Extraction Failed: Mismatch in data."
                 except json.JSONDecodeError:
-                    reward = -1.0
+                    reward = -1.0   
                     obs_text = "ERROR: Invalid JSON format."
 
         # --- PHASE 2: LAW SELECTION ---
@@ -168,7 +188,6 @@ class CargoComplianceEnv(Environment):
                 audit_score = await self.get_llm_judge_score(action.decision, state.extraction_data, truth)
                 reward = audit_score * 2.0 # Weight the final logic score
                 obs_text = f"Audit Complete. Judge Score: {audit_score}. Episode Finished."
-                is_terminal = True
 
         return Cargo_Observation(
             text=obs_text,
@@ -178,6 +197,5 @@ class CargoComplianceEnv(Environment):
             laws=state.extraction_data.get("laws", []),
             history=state.history,
             step=state.steps,
-            reward=reward,
-            is_terminal=is_terminal
+            reward=reward
         )
