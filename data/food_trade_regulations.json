@@ -18,7 +18,6 @@
         "Legal Metrology Act 2009"
       ],
       "import_rules": {
-        "license_required": true,
         "compliance": [
           "FSSAI Import License",
           "Product Approval (if applicable)"
@@ -111,9 +110,6 @@
           "Border Control Posts (BCP)",
           "Veterinary/Phytosanitary Checks"
         ],
-        "taxes": [
-          "VAT"
-        ],
         "documents": [
           "Import Declaration",
           "Health Certificate",
@@ -141,7 +137,6 @@
         "Customs Act"
       ],
       "import_rules": {
-        "license_required": true,
         "compliance": [
           "Safe Food License",
           "Preventive Control Plan"
@@ -184,7 +179,6 @@
         "checks": [
           "Inspection by DAFF"
         ],
-        "tax": "GST",
         "documents": [
           "Import Declaration",
           "Health Certificate",

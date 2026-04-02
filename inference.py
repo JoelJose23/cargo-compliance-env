@@ -82,17 +82,29 @@ def ollama_chat(model: str, messages: List[Dict[str, str]], host: str, timeout: 
 
 
 def parse_first_json_object(text: str) -> Dict[str, Any]:
-    match = re.search(r"\{[\s\S]*\}", text)
+    # Use non-greedy match or finditer to get the first valid block
+    match = re.search(r"\{.*\}", text, re.DOTALL)
     if not match:
-        raise ValueError(f"Model did not return a JSON object. Raw output:\n{text}")
-    return json.loads(match.group(0))
-
+        raise ValueError(f"No JSON object found in: {text}")
+    try:
+        return json.loads(match.group(0))
+    except json.JSONDecodeError:
+        # Fallback: try to find the last closing brace if the first match failed
+        end_index = text.rfind("}") + 1
+        start_index = text.find("{")
+        return json.loads(text[start_index:end_index])
 
 def parse_first_json_array(text: str) -> List[Any]:
-    match = re.search(r"\[[\s\S]*\]", text)
+    # Non-greedy match to avoid capturing trailing text/brackets
+    match = re.search(r"\[.*?\]", text, re.DOTALL)
     if not match:
-        raise ValueError(f"Model did not return a JSON array. Raw output:\n{text}")
-    return json.loads(match.group(0))
+        raise ValueError(f"No JSON array found in: {text}")
+    try:
+        return json.loads(match.group(0))
+    except json.JSONDecodeError:
+        end_index = text.rfind(']') + 1
+        start_index = text.find('[')
+        return json.loads(text[start_index:end_index])
 
 
 async def run_episode(model: str, host: str, timeout: int, use_ollama_judge: bool) -> None:
@@ -119,23 +131,21 @@ async def run_episode(model: str, host: str, timeout: int, use_ollama_judge: boo
         env.get_llm_judge_score = _local_judge  # type: ignore[assignment]
 
     session_id, obs = env.create_task()
+    cumulative_reward = 0.0
     print("\n=== INITIAL OBSERVATION ===")
     print(obs.text)
-    print("Manifest:", json.dumps(obs.manifest, indent=2))
-
+    
     raw_text = obs.manifest.get("raw_text", "")
 
+    # CHANGE 1: Explicitly ask for units to prevent the string mismatch error 
     extraction_prompt = (
-        "Extract shipment details from the text. Return ONLY valid JSON with exactly these keys:\n"
-        '{"qty": "...", "category"(Only choose from this list [Electronics,Food,Pharmaceutical,Nuclear]): "...", "Destination": "...", "Origin": "..."}\n'
-        f"Text: {raw_text}"
-    )
-    extraction_raw = ollama_chat(
-        model=model,
-        messages=[{"role": "user", "content": extraction_prompt}],
-        host=host,
-        timeout=timeout,
-    )
+    "Extract shipment details. You MUST return a FLAT JSON object (no nesting). "
+    "Use these exact keys: \"qty\", \"category\", \"Destination\", \"Origin\".\n"
+    "For \"category\", choose one of: Food, Nuclear, Pharmaceutical, Electronics.\n"
+    "Ensure 'qty' includes the units (e.g., '491 units').\n"
+    f"Text: {raw_text}")
+    
+    extraction_raw = ollama_chat(model=model, messages=[{"role": "user", "content": extraction_prompt}], host=host, timeout=timeout)
     extraction = parse_first_json_object(extraction_raw)
     print(f"DEBUG: LLM Extracted: {json.dumps(extraction, indent=2)}")
 
@@ -148,50 +158,63 @@ async def run_episode(model: str, host: str, timeout: int, use_ollama_judge: boo
     )
     print("\n=== AFTER EXTRACTION SUBMISSION ===")
     print(obs.text)
-    print("Reward:", obs.reward)
-    print("Current extraction:", json.dumps(obs.current_extraction, indent=2))
+    cumulative_reward += obs.reward
+    print("Step Reward:", obs.reward)
+    print("Total Reward:", obs.total_reward if hasattr(obs, "total_reward") else cumulative_reward)
 
+    # CHANGE 2: Proper ID-to-Name Mapping
+    # The environment rewards based on Law NAMES, but LLMs are more reliable with IDs.
+    # We map the IDs back to Names before submitting the action.
     if obs.available_laws:
         law_prompt = (
-            "Pick the relevant law IDs for this shipment.\n"
-            f"Extraction: {json.dumps(obs.current_extraction)}\n"
-            f"Available laws: {json.dumps(obs.available_laws)}\n"
-            "Return ONLY a JSON array of selected law IDs, e.g. [\"LAW_A\", \"LAW_B\"]."
+        "SYSTEM: You are a Custom Broker. You must provide a complete compliance package JSON.\n"
+        "USER: Create a compliance package for this shipment. \n"
+        f"Shipment: {json.dumps(obs.current_extraction)}\n"
+        f"Available Law IDs: {json.dumps(obs.available_laws)}\n\n"
+        "Output ONLY this JSON format:\n"
+        "{\n"
+        "  \"laws\": [\"LAW_ID_HERE\"],\n"
+        "  \"regulator\": \"Name of the specific regulator (e.g., FDA, DEA, or CBP)\",\n"
+        "  \"documents\": [\"List of required documents like Bill of Lading, Invoice, etc.\"]\n"
+        "}"
         )
-        law_raw = ollama_chat(
-            model=model,
-            messages=[{"role": "user", "content": law_prompt}],
-            host=host,
-            timeout=timeout,
-        )
-        selected_laws = parse_first_json_array(law_raw)
+        law_raw = ollama_chat(model=model, messages=[{"role": "user", "content": law_prompt}], host=host, timeout=timeout)
+        # Parse the full compliance package.
+        compliance_package = parse_first_json_object(law_raw)
+        selected_ids = compliance_package.get("laws", [])
+        print(f"DEBUG: LLM Selected Law IDs: {selected_ids}")
+
+        # Map IDs back to Names for the environment's reward checker
+        id_to_name_map = {law["id"]: law["name"] for law in obs.available_laws}
+        compliance_package["laws"] = [id_to_name_map.get(l_id, l_id) for l_id in selected_ids]
 
         obs = await env.step(
             session_id,
             Cargo_Action(
                 action_type=Cargo_FetchState.PICK_LAW,
-                decision=json.dumps(selected_laws),
+                decision=json.dumps(compliance_package), # Environment receives the Names
             ),
         )
         print("\n=== AFTER LAW SELECTION ===")
-        print(obs.text)
-        print("Reward:", obs.reward)
-        print("Selected laws:", json.dumps(selected_laws))
+        print(f"Status: {obs.text}")
+        cumulative_reward += obs.reward
+        print(f"Step Reward: {obs.reward}")
+        print(f"Total Reward: {obs.total_reward if hasattr(obs, 'total_reward') else cumulative_reward}")
+        print("Laws mapped and submitted:", compliance_package["laws"])
+        print(f"DEBUG: Compliance Package being sent to Env: {json.dumps(compliance_package, indent=2)}")
     else:
-        print("\nNo laws available, extraction likely failed. Ending episode.")
+        print("\nNo laws available. Check if extraction correctly identified the Category and Destination.")
         return
 
+    # CHANGE 3: Better Reasoning Context
+    # We now pass the names of the selected laws to the reasoning prompt.
     reasoning_prompt = (
-        "Write 3-5 concise sentences justifying selected laws for this shipment.\n"
-        f"Extraction: {json.dumps(obs.current_extraction)}\n"
-        f"Selected laws: {json.dumps(obs.current_extraction.get('laws', []))}"
+        "Provide a 3-sentence legal justification for why this complete compliance package "
+        "(laws, regulator, and documents) applies to this cargo.\n"
+        f"Shipment Context: {json.dumps(obs.current_extraction)}\n"
+        f"Selected Package: {json.dumps(compliance_package)}"
     )
-    reasoning = ollama_chat(
-        model=model,
-        messages=[{"role": "user", "content": reasoning_prompt}],
-        host=host,
-        timeout=timeout,
-    )
+    reasoning = ollama_chat(model=model, messages=[{"role": "user", "content": reasoning_prompt}], host=host, timeout=timeout)
 
     obs = await env.step(
         session_id,
@@ -202,9 +225,10 @@ async def run_episode(model: str, host: str, timeout: int, use_ollama_judge: boo
     )
     print("\n=== FINAL VERDICT ===")
     print(obs.text)
-    print("Reward:", obs.reward)
-    print("Reasoning used:\n", reasoning)
-
+    cumulative_reward += obs.reward
+    print("Step Reward:", obs.reward)
+    print("Final Reward:", obs.total_reward if hasattr(obs, "total_reward") else cumulative_reward)
+    print("Reasoning:\n", reasoning)
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Test CargoComplianceEnv with a local Ollama model.")

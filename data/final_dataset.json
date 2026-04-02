@@ -1,0 +1,750 @@
+[
+{
+  "industry": "Food Products (Processed, Packaged, Agricultural)",
+  "global_standards": [
+    "Codex Alimentarius (FAO/WHO Food Standards)",
+    "WTO Sanitary and Phytosanitary (SPS) Agreement",
+    "HACCP (Hazard Analysis Critical Control Point)",
+    "ISO 22000 Food Safety Management",
+    "Food Labeling Standards (Global Best Practices)"
+  ],
+  "countries": [
+    {
+      "name": "India",
+      "food_regulator": "FSSAI (Food Safety and Standards Authority of India)",
+      "laws": [
+        "Food Safety and Standards Act 2006",
+        "Foreign Trade Policy 2023",
+        "Customs Act 1962",
+        "Legal Metrology Act 2009"
+      ],
+      "import_rules": {
+        "compliance": [
+          "FSSAI Import License",
+          "Product Approval (if applicable)"
+        ],
+        "checks": [
+          "Port Health Officer Clearance",
+          "Label Compliance"
+        ],
+        "duties": [
+          "Basic Customs Duty",
+          "IGST"
+        ],
+        "documents": [
+          "Bill of Entry",
+          "FSSAI License",
+          "Health Certificate",
+          "Packing List",
+          "Commercial Invoice"
+        ]
+      },
+      "export_rules": {
+        "certifications": [
+          "FSSAI License",
+          "APEDA/MPEDA Registration (if applicable)"
+        ],
+        "controls": [
+          "Export Inspection Council Certification"
+        ],
+        "documents": [
+          "Shipping Bill",
+          "Export Invoice",
+          "Phytosanitary Certificate"
+        ]
+      }
+    },
+    {
+      "name": "United States",
+      "food_regulator": "FDA (Food and Drug Administration) / USDA",
+      "laws": [
+        "Food Safety Modernization Act (FSMA)",
+        "Federal Food, Drug, and Cosmetic Act",
+        "Tariff Act of 1930"
+      ],
+      "import_rules": {
+        "registration": "FDA Facility Registration required",
+        "compliance": [
+          "Prior Notice Filing",
+          "FSVP (Foreign Supplier Verification Program)"
+        ],
+        "checks": [
+          "FDA Inspection",
+          "Labeling Compliance"
+        ],
+        "documents": [
+          "Customs Entry",
+          "Prior Notice Confirmation",
+          "Commercial Invoice",
+          "Packing List"
+        ]
+      },
+      "export_rules": {
+        "certifications": [
+          "FDA Compliance",
+          "USDA Certification (for meat/agriculture)"
+        ],
+        "controls": [
+          "Export restrictions on certain food items"
+        ],
+        "documents": [
+          "EEI Filing",
+          "Invoice"
+        ]
+      }
+    },
+    {
+      "name": "European Union",
+      "food_regulator": "European Food Safety Authority (EFSA)",
+      "laws": [
+        "General Food Law Regulation",
+        "EU Hygiene Package",
+        "Official Controls Regulation"
+      ],
+      "import_rules": {
+        "compliance": [
+          "EU Food Safety Standards",
+          "Traceability Requirements",
+          "HACCP Compliance"
+        ],
+        "checks": [
+          "Border Control Posts (BCP)",
+          "Veterinary/Phytosanitary Checks"
+        ],
+        "documents": [
+          "Import Declaration",
+          "Health Certificate",
+          "Certificate of Origin",
+          "Commercial Invoice"
+        ]
+      },
+      "export_rules": {
+        "controls": [
+          "EU Food Export Regulations",
+          "Sanitary Certification"
+        ],
+        "documents": [
+          "Export Declaration",
+          "Health Certificate",
+          "Invoice"
+        ]
+      }
+    },
+    {
+      "name": "Canada",
+      "food_regulator": "CFIA (Canadian Food Inspection Agency)",
+      "laws": [
+        "Safe Food for Canadians Act",
+        "Customs Act"
+      ],
+      "import_rules": {
+        "compliance": [
+          "Safe Food License",
+          "Preventive Control Plan"
+        ],
+        "checks": [
+          "CFIA Inspection"
+        ],
+        "documents": [
+          "Import Declaration",
+          "Health Certificate",
+          "Commercial Invoice",
+          "Packing List"
+        ]
+      },
+      "export_rules": {
+        "certifications": [
+          "CFIA Export Certification"
+        ],
+        "controls": [
+          "Export permits for specific foods"
+        ],
+        "documents": [
+          "Export Declaration",
+          "Invoice"
+        ]
+      }
+    },
+    {
+      "name": "Australia",
+      "food_regulator": "FSANZ (Food Standards Australia New Zealand) / DAFF",
+      "laws": [
+        "Imported Food Control Act 1992",
+        "Biosecurity Act 2015"
+      ],
+      "import_rules": {
+        "compliance": [
+          "Food Standards Code",
+          "Biosecurity Clearance"
+        ],
+        "checks": [
+          "Inspection by DAFF"
+        ],
+        "documents": [
+          "Import Declaration",
+          "Health Certificate",
+          "Commercial Invoice"
+        ]
+      },
+      "export_rules": {
+        "certifications": [
+          "Export Permit",
+          "Health Certificate"
+        ],
+        "controls": [
+          "Biosecurity and food safety restrictions"
+        ],
+        "documents": [
+          "Export Declaration",
+          "Invoice"
+        ]
+      }
+    }
+  ]
+},
+{
+  "industry": "Radioactive Materials and Nuclear Goods",
+  "global_standards": "IAEA SSR-6 (Regulations for the Safe Transport of Radioactive Material)",
+  "countries": [
+    {
+      "name": "India",
+      "nuclear_regulator": "Atomic Energy Regulatory Board (AERB)",
+      "laws": [
+        "Atomic Energy Act 1962",
+        "Customs Act 1962",
+        "Foreign Trade Policy 2023"
+      ],
+      "import_rules": {
+        "iec_required": true,
+        "classification": "ITC-HS Chapter 28",
+        "categories": [
+          "Restricted",
+          "Canalized"
+        ],
+        "special_permits": [
+          "NOC from AERB",
+          "DGFT Import License"
+        ],
+        "duties": [
+          "Basic Customs Duty",
+          "IGST"
+        ],
+        "documents": [
+          "Bill of Entry",
+          "Radiation Safety Certificate",
+          "Source Certificate"
+        ]
+      },
+      "export_rules": {
+        "controls": [
+          "SCOMET Category 0 (Nuclear materials)"
+        ],
+        "documents": [
+          "Shipping Bill",
+          "Export Authorization from Dept of Atomic Energy"
+        ]
+      }
+    },
+    {
+      "name": "United States",
+      "nuclear_regulator": "Nuclear Regulatory Commission (NRC)",
+      "laws": [
+        "Atomic Energy Act of 1954",
+        "Export Administration Regulations (EAR)"
+      ],
+      "import_rules": {
+        "classification": "HTS 2844",
+        "license_required": "NRC Import License (Specific or General)",
+        "importer_of_record": "Required",
+        "documents": [
+          "Customs Entry Filing",
+          "NRC Form 7"
+        ]
+      },
+      "export_rules": {
+        "license_required": "NRC Export License",
+        "controls": [
+          "OFAC Sanctions",
+          "Dual-use technology (BIS/EAR)"
+        ]
+      }
+    },
+    {
+      "name": "European Union",
+      "nuclear_regulator": "Euratom / National Nuclear Safety Authorities",
+      "laws": [
+        "Euratom Treaty",
+        "Union Customs Code"
+      ],
+      "import_rules": {
+        "single_system": true,
+        "compliance": [
+          "Radiation Protection Standards",
+          "IAEA SSR-6"
+        ],
+        "taxes": [
+          "VAT"
+        ],
+        "documents": [
+          "Import Declaration",
+          "Euratom Shipment Approval"
+        ]
+      },
+      "export_rules": {
+        "controls": [
+          "Dual-use items regulation",
+          "Forced labor goods ban"
+        ]
+      }
+    },
+    {
+      "name": "Canada",
+      "nuclear_regulator": "Canadian Nuclear Safety Commission (CNSC)",
+      "laws": [
+        "Nuclear Safety and Control Act",
+        "Customs Act"
+      ],
+      "import_rules": {
+        "license_required": "CNSC Import Licence",
+        "taxes": [
+          "GST",
+          "HST"
+        ],
+        "declaration_required": true
+      },
+      "export_rules": {
+        "permits_required": "CNSC Export Licence",
+        "controls": [
+          "Nuclear Non-Proliferation Treaty compliance"
+        ]
+      }
+    },
+    {
+      "name": "Australia",
+      "nuclear_regulator": "ARPANSA / ASNO",
+      "laws": [
+        "ARPANS Act 1998",
+        "Customs Act 1901"
+      ],
+      "import_rules": {
+        "permits_required": "ARPANSA Import Permit",
+        "biosecurity": "High level monitoring",
+        "tax": "GST"
+      },
+      "export_rules": {
+        "declaration_required": true,
+        "controls": [
+          "Safeguards and non-proliferation permits"
+        ]
+      }
+    }
+  ]
+},
+{
+  "industry": "Pharmaceutical Drugs (Finished Formulations, APIs, Controlled Substances)",
+  "global_standards": [
+    "WHO Good Manufacturing Practices (GMP)",
+    "ICH Guidelines (International Council for Harmonisation)",
+    "WTO TRIPS Agreement",
+    "UN Single Convention on Narcotic Drugs",
+    "Pharmacovigilance Standards"
+  ],
+  "countries": [
+    {
+      "name": "India",
+      "drug_regulator": "CDSCO (Central Drugs Standard Control Organization)",
+      "laws": [
+        "Drugs and Cosmetics Act 1940",
+        "NDPS Act 1985",
+        "Foreign Trade Policy 2023",
+        "Customs Act 1962"
+      ],
+      "import_rules": {
+        "license_required": true,
+        "compliance": [
+          "Import License (Form 10/41)",
+          "Registration Certificate"
+        ],
+        "controlled_substances": [
+          "NDPS clearance required"
+        ],
+        "duties": [
+          "Basic Customs Duty",
+          "IGST"
+        ],
+        "documents": [
+          "Bill of Entry",
+          "Import License",
+          "Certificate of Analysis",
+          "Packing List",
+          "Commercial Invoice"
+        ]
+      },
+      "export_rules": {
+        "certifications": [
+          "Manufacturing License",
+          "WHO-GMP Certificate"
+        ],
+        "controls": [
+          "NDPS restrictions for narcotics",
+          "SCOMET (for certain APIs)"
+        ],
+        "documents": [
+          "Shipping Bill",
+          "Export Invoice",
+          "Certificate of Analysis"
+        ]
+      }
+    },
+    {
+      "name": "United States",
+      "drug_regulator": "FDA (Food and Drug Administration) / DEA",
+      "laws": [
+        "Federal Food, Drug, and Cosmetic Act",
+        "Controlled Substances Act",
+        "Export Administration Regulations (EAR)"
+      ],
+      "import_rules": {
+        "registration": "FDA Establishment Registration required",
+        "compliance": [
+          "Drug Listing",
+          "Prior Notice",
+          "cGMP compliance"
+        ],
+        "controlled_substances": [
+          "DEA permit required"
+        ],
+        "documents": [
+          "Customs Entry",
+          "FDA Documentation",
+          "Commercial Invoice",
+          "Packing List"
+        ]
+      },
+      "export_rules": {
+        "certifications": [
+          "FDA Approval",
+          "DEA Export Permit (if controlled)"
+        ],
+        "controls": [
+          "Controlled substances restrictions",
+          "Sanctions (OFAC)"
+        ],
+        "documents": [
+          "EEI Filing",
+          "Invoice"
+        ]
+      }
+    },
+    {
+      "name": "European Union",
+      "drug_regulator": "European Medicines Agency (EMA)",
+      "laws": [
+        "EU Pharmaceutical Directive",
+        "Good Distribution Practice (GDP)",
+        "EU Controlled Substances Regulations"
+      ],
+      "import_rules": {
+        "compliance": [
+          "EU GMP Certification",
+          "Marketing Authorization",
+          "Qualified Person (QP) Release"
+        ],
+        "controlled_substances": [
+          "Special authorization required"
+        ],
+        "documents": [
+          "Import Authorization",
+          "Batch Release Certificate",
+          "Commercial Invoice"
+        ]
+      },
+      "export_rules": {
+        "controls": [
+          "EU Dual-Use & Controlled Drug Regulations"
+        ],
+        "certifications": [
+          "GMP Certificate"
+        ],
+        "documents": [
+          "Export Declaration",
+          "Invoice"
+        ]
+      }
+    },
+    {
+      "name": "Canada",
+      "drug_regulator": "Health Canada",
+      "laws": [
+        "Food and Drugs Act",
+        "Controlled Drugs and Substances Act"
+      ],
+      "import_rules": {
+        "license_required": true,
+        "compliance": [
+          "Drug Establishment License (DEL)",
+          "GMP compliance"
+        ],
+        "controlled_substances": [
+          "Import permit required"
+        ],
+        "documents": [
+          "Import Declaration",
+          "DEL License",
+          "Commercial Invoice",
+          "Packing List"
+        ]
+      },
+      "export_rules": {
+        "certifications": [
+          "Health Canada Approval"
+        ],
+        "controls": [
+          "Controlled drugs export permit"
+        ],
+        "documents": [
+          "Export Declaration",
+          "Invoice"
+        ]
+      }
+    },
+    {
+      "name": "Australia",
+      "drug_regulator": "Therapeutic Goods Administration (TGA)",
+      "laws": [
+        "Therapeutic Goods Act 1989",
+        "Customs Act 1901"
+      ],
+      "import_rules": {
+        "compliance": [
+          "TGA Registration (ARTG)",
+          "GMP Certification"
+        ],
+        "controlled_substances": [
+          "Import permit required"
+        ],
+        "documents": [
+          "Import Declaration",
+          "TGA Approval",
+          "Commercial Invoice"
+        ]
+      },
+      "export_rules": {
+        "certifications": [
+          "TGA Export Certification"
+        ],
+        "controls": [
+          "Controlled substances restrictions"
+        ],
+        "documents": [
+          "Export Declaration",
+          "Invoice"
+        ]
+      }
+    }
+  ]
+},
+{
+  "industry": "Electronics (Consumer, Industrial, and Dual-use Goods)",
+  "global_standards": [
+    "WCO Harmonized System (HS Codes - Chapter 84, 85)",
+    "IEC Standards (International Electrotechnical Commission)",
+    "WTO Trade Facilitation Agreement",
+    "RoHS (Restriction of Hazardous Substances)",
+    "WEEE (E-Waste Management)"
+  ],
+  "countries": [
+    {
+      "name": "India",
+      "electronics_regulator": "Ministry of Electronics and Information Technology (MeitY) / Bureau of Indian Standards (BIS)",
+      "laws": [
+        "Foreign Trade Policy 2023",
+        "Electronics and IT Goods (Requirements for Compulsory Registration) Order",
+        "Customs Act 1962",
+        "Legal Metrology Act 2009"
+      ],
+      "import_rules": {
+        "iec_required": true,
+        "classification": "ITC-HS Chapter 84 & 85",
+        "compliance": [
+          "BIS CRS Registration",
+          "WPC Approval (for wireless devices)"
+        ],
+        "categories": [
+          "Restricted (for certain telecom equipment)"
+        ],
+        "duties": [
+          "Basic Customs Duty",
+          "IGST",
+          "Social Welfare Surcharge"
+        ],
+        "documents": [
+          "Bill of Entry",
+          "BIS Certificate",
+          "Test Reports",
+          "Packing List",
+          "Commercial Invoice"
+        ]
+      },
+      "export_rules": {
+        "controls": [
+          "SCOMET (for dual-use electronics like semiconductors, telecom encryption items)"
+        ],
+        "incentives": [
+          "RoDTEP Scheme",
+          "SEZ Benefits"
+        ],
+        "documents": [
+          "Shipping Bill",
+          "Export Invoice",
+          "Packing List"
+        ]
+      }
+    },
+    {
+      "name": "United States",
+      "electronics_regulator": "Federal Communications Commission (FCC) / Bureau of Industry and Security (BIS)",
+      "laws": [
+        "Export Administration Regulations (EAR)",
+        "Communications Act of 1934",
+        "Tariff Act of 1930"
+      ],
+      "import_rules": {
+        "classification": "HTS Chapter 84 & 85",
+        "compliance": [
+          "FCC Certification (for wireless/EMI devices)"
+        ],
+        "importer_of_record": "Required",
+        "documents": [
+          "Customs Entry Filing",
+          "FCC Declaration of Conformity",
+          "Commercial Invoice",
+          "Packing List"
+        ]
+      },
+      "export_rules": {
+        "license_required": "For controlled electronics under EAR",
+        "controls": [
+          "Commerce Control List (CCL)",
+          "Dual-use restrictions (semiconductors, AI chips)",
+          "OFAC Sanctions"
+        ],
+        "documents": [
+          "Electronic Export Information (EEI)",
+          "Commercial Invoice"
+        ]
+      }
+    },
+    {
+      "name": "European Union",
+      "electronics_regulator": "European Commission / National Market Surveillance Authorities",
+      "laws": [
+        "CE Marking Directive",
+        "RoHS Directive",
+        "WEEE Directive",
+        "Union Customs Code"
+      ],
+      "import_rules": {
+        "single_system": true,
+        "classification": "CN Codes (Chapter 84 & 85)",
+        "compliance": [
+          "CE Marking",
+          "RoHS Compliance",
+          "REACH Regulation"
+        ],
+        "taxes": [
+          "VAT"
+        ],
+        "documents": [
+          "Import Declaration",
+          "Declaration of Conformity (DoC)",
+          "Technical File",
+          "Commercial Invoice"
+        ]
+      },
+      "export_rules": {
+        "controls": [
+          "EU Dual-Use Regulation",
+          "Sanctions Regulations"
+        ],
+        "documents": [
+          "Export Declaration",
+          "Commercial Invoice"
+        ]
+      }
+    },
+    {
+      "name": "Canada",
+      "electronics_regulator": "Innovation, Science and Economic Development Canada (ISED)",
+      "laws": [
+        "Radiocommunication Act",
+        "Customs Act",
+        "Canada Consumer Product Safety Act"
+      ],
+      "import_rules": {
+        "classification": "HS Chapter 84 & 85",
+        "compliance": [
+          "ISED Certification (for wireless devices)",
+          "ICES Standards (EMI compliance)"
+        ],
+        "taxes": [
+          "GST",
+          "HST"
+        ],
+        "documents": [
+          "Customs Declaration",
+          "Certification Documents",
+          "Commercial Invoice",
+          "Packing List"
+        ]
+      },
+      "export_rules": {
+        "permits_required": "For controlled dual-use electronics",
+        "controls": [
+          "Export Control List (ECL)",
+          "Wassenaar Arrangement compliance"
+        ],
+        "documents": [
+          "Export Declaration",
+          "Invoice"
+        ]
+      }
+    },
+    {
+      "name": "Australia",
+      "electronics_regulator": "Australian Communications and Media Authority (ACMA)",
+      "laws": [
+        "Radiocommunications Act 1992",
+        "Customs Act 1901",
+        "Australian Consumer Law"
+      ],
+      "import_rules": {
+        "classification": "HS Chapter 84 & 85",
+        "compliance": [
+          "RCM Mark (Regulatory Compliance Mark)",
+          "EMC Standards",
+          "Electrical Safety Standards"
+        ],
+        "permits_required": "For certain telecom equipment",
+        "tax": "GST",
+        "documents": [
+          "Import Declaration",
+          "Supplier Declaration of Conformity",
+          "Commercial Invoice"
+        ]
+      },
+      "export_rules": {
+        "controls": [
+          "Defence and Strategic Goods List (DSGL)",
+          "Dual-use electronics restrictions"
+        ],
+        "documents": [
+          "Export Declaration",
+          "Invoice"
+        ]
+      }
+    }
+  ]
+}
+]
+
