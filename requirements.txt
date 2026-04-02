@@ -4,3 +4,5 @@ pydantic
 openenv-core>=0.2.2
 groq
 tenacity
+python-dotenv
+asyncio

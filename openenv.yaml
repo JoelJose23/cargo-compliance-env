@@ -1,0 +1,29 @@
+version: "1.0"
+name: "cargo-compliance-challenge"
+benchmark: "SSET-Cargo-v1"
+
+# 1. Execution Settings
+entrypoint: "python3 inference.py"
+timeout: 300 # 5 minutes per episode
+memory_limit: "4Gi"
+
+# 2. Environment Configuration
+env_vars:
+  API_BASE_URL: "http://localhost:11434/v1"
+  MODEL_NAME: "mistral"
+  # Do NOT put your real API Key here; set it in HF Space Secrets instead
+  GROQ_API_KEY: "${GROQ_API_KEY}" 
+
+# 3. Build Requirements
+build:
+  python_version: "3.11"
+  requirements: "requirements.txt"
+  # If your environment requires a specific Docker base:
+  # image: "python:3.11-slim"
+
+# 4. Evaluation Metrics
+metrics:
+  - name: "total_reward"
+    goal: "maximize"
+  - name: "success_rate"
+    goal: "maximize"
