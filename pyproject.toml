@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cargo-compliance-env"
+version = "0.1.0"
+description = "DeAI Dispatcher: Autonomous Cargo Compliance Environment"
+readme = { text = "DeAI Dispatcher: Autonomous Cargo Compliance Environment", content-type = "text/markdown" }
+requires-python = ">=3.10"
+authors = [{ name = "Joel Jose" }]
+dependencies = [
+    "openenv-core>=0.2.0",
+    "fastapi",
+    "uvicorn",
+    "openai",
+    "groq",
+    "python-dotenv",
+    "tenacity",
+    "pydantic"
+]
+
+[project.scripts]
+server = "server.main:run"
+
+[tool.setuptools]
+packages = ["server"]
+
+[tool.setuptools.package-data]
+# If you need your JSON files bundled, this includes them
+"*" = ["*.json", "*.yaml"]

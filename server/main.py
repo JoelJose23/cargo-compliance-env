@@ -1,7 +1,8 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from models import Cargo_Action, Cargo_Observation, Cargo_State
-from server.environment import CargoComplianceEnv # Import your real class
+import uvicorn
+from .models import Cargo_Action, Cargo_Observation, Cargo_State
+from .environment import CargoComplianceEnv # Import your real class
 
 app = FastAPI(title="Cargo Compliance Production API")
 
@@ -65,3 +66,7 @@ async def get_tasks():
 @app.get("/health")
 async def health():
     return {"status": "online", "engine": "CargoComplianceEnv v1.0"}
+
+
+def run() -> None:
+    uvicorn.run("server.main:app", host="0.0.0.0", port=8000, reload=False)

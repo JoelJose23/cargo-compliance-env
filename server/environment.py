@@ -6,7 +6,7 @@ from typing import Dict, Any, Tuple, Optional, List
 from groq import Groq
 from tenacity import retry, stop_after_attempt, wait_exponential
 from openenv.core.env_server import Environment
-from models import Cargo_Action, Cargo_Observation, Cargo_FetchState, Cargo_State
+from .models import Cargo_Action, Cargo_Observation, Cargo_FetchState, Cargo_State
 import re
 from dotenv import load_dotenv
 

@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from models import Cargo_Action, Cargo_FetchState
+from server.models import Cargo_Action, Cargo_FetchState
 from server.environment import CargoComplianceEnv
 
 # CONFIGURATION (Optimized for HF Mistral)
