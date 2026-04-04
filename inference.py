@@ -1,266 +1,160 @@
-import argparse
 import asyncio
+import os
 import json
 import re
 import sys
-import types
+from typing import List, Optional
+from openai import OpenAI
 from pathlib import Path
-from typing import Any, Dict, List
-from urllib import request
 
-
+# Setup project paths
 ROOT = Path(__file__).resolve().parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-# Allow importing server/environment.py even when groq isn't installed.
-if "groq" not in sys.modules:
+from models import Cargo_Action, Cargo_FetchState
+from server.environment import CargoComplianceEnv
+
+# CONFIGURATION (Optimized for HF Mistral)
+API_BASE_URL = os.getenv("API_BASE_URL") or "https://api-inference.huggingface.co/v1"
+MODEL_NAME = os.getenv("MODEL_NAME") or "mistralai/Mistral-7B-Instruct-v0.3"
+API_KEY = os.getenv("HF_TOKEN") or "your-hf-token-here"
+TASK_NAME = os.getenv("MY_ENV_V4_TASK", "cargo-compliance")
+BENCHMARK = os.getenv("MY_ENV_V4_BENCHMARK", "CargoComplianceEnv")
+
+# LOGGING
+def log_start(task: str, env: str, model: str) -> None:
+    print(f"[START] task={task} env={env} model={model}", flush=True)
+
+def log_step(step: int, action: str, reward: float, done: bool, error: Optional[str]) -> None:
+    error_val = f'"{error}"' if error else "null"
+    print(f"[STEP] step={step} action={action} reward={reward:.2f} done={str(done).lower()} error={error_val}", flush=True)
+
+def log_end(success: bool, steps: int, rewards: List[float]) -> None:
+    rewards_str = ",".join(f"{r:.2f}" for r in rewards)
+    print(f"[END] success={str(success).lower()} steps={steps} rewards={rewards_str}", flush=True)
+
+# ROBUST JSON PARSER
+def repair_json(text: str) -> dict:
+    """Strips common LLM conversational filler to find the JSON object."""
+    # Look for the first { and the last }
     try:
-        import groq  # type: ignore  # noqa: F401
-    except ModuleNotFoundError:
-        groq_stub = types.ModuleType("groq")
+        start = text.find('{')
+        end = text.rfind('}') + 1
+        if start != -1 and end != -1:
+            json_str = text[start:end]
+            return json.loads(json_str)
+    except:
+        pass
+    return {}
 
-        class _FailingCompletions:
-            @staticmethod
-            def create(*args: Any, **kwargs: Any) -> Any:
-                raise RuntimeError("groq package is not installed.")
-
-        class _FailingChat:
-            completions = _FailingCompletions()
-
-        class Groq:  # noqa: N801
-            def __init__(self, *args: Any, **kwargs: Any) -> None:
-                self.chat = _FailingChat()
-
-        groq_stub.Groq = Groq
-        sys.modules["groq"] = groq_stub
-
-# Allow importing server/environment.py even when tenacity isn't installed.
-if "tenacity" not in sys.modules:
+def get_llm_response(client: OpenAI, sys_p: str, usr_p: str) -> str:
     try:
-        import tenacity  # type: ignore  # noqa: F401
-    except ModuleNotFoundError:
-        tenacity_stub = types.ModuleType("tenacity")
+        completion = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[
+                {"role": "system", "content": sys_p},
+                {"role": "user", "content": usr_p},
+            ],
+            temperature=0, # Crucial for consistency
+            max_tokens=500
+        )
+        print(f"LLM RAW RESPONSE: {completion.choices[0].message.content}", flush=True)
+        return (completion.choices[0].message.content or "").strip()
+    except Exception as e:
+        return f"Error: {str(e)}"
 
-        def retry(*args: Any, **kwargs: Any):
-            def _decorator(fn):
-                return fn
-            return _decorator
-
-        def stop_after_attempt(*args: Any, **kwargs: Any) -> Any:
-            return None
-
-        def wait_exponential(*args: Any, **kwargs: Any) -> Any:
-            return None
-
-        tenacity_stub.retry = retry
-        tenacity_stub.stop_after_attempt = stop_after_attempt
-        tenacity_stub.wait_exponential = wait_exponential
-        sys.modules["tenacity"] = tenacity_stub
-
-from models import Cargo_Action, Cargo_FetchState  # noqa: E402
-from server.environment import CargoComplianceEnv  # noqa: E402
-
-
-def ollama_chat(model: str, messages: List[Dict[str, str]], host: str, timeout: int) -> str:
-    payload = {
-        "model": model,
-        "messages": messages,
-        "stream": False,
-        "options": {"temperature": 0},
-    }
-    data = json.dumps(payload).encode("utf-8")
-    req = request.Request(
-        host,
-        data=data,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    with request.urlopen(req, timeout=timeout) as resp:
-        body = json.loads(resp.read().decode("utf-8"))
-    return body["message"]["content"].strip()
-
-
-def parse_first_json_object(text: str) -> Dict[str, Any]:
-    # Use non-greedy match or finditer to get the first valid block
-    match = re.search(r"\{.*\}", text, re.DOTALL)
-    if not match:
-        raise ValueError(f"No JSON object found in: {text}")
-    try:
-        return json.loads(match.group(0))
-    except json.JSONDecodeError:
-        # Fallback: try to find the last closing brace if the first match failed
-        end_index = text.rfind("}") + 1
-        start_index = text.find("{")
-        return json.loads(text[start_index:end_index])
-
-def parse_first_json_array(text: str) -> List[Any]:
-    # Non-greedy match to avoid capturing trailing text/brackets
-    match = re.search(r"\[.*?\]", text, re.DOTALL)
-    if not match:
-        raise ValueError(f"No JSON array found in: {text}")
-    try:
-        return json.loads(match.group(0))
-    except json.JSONDecodeError:
-        end_index = text.rfind(']') + 1
-        start_index = text.find('[')
-        return json.loads(text[start_index:end_index])
-
-
-async def run_episode(model: str, host: str, timeout: int, use_ollama_judge: bool) -> None:
+async def main() -> None:
+    client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
     env = CargoComplianceEnv()
-
-    if use_ollama_judge:
-        async def _local_judge(reasoning: str, extraction: dict, truth: dict) -> float:
-            judge_prompt = (
-                "Analyze the agent's compliance reasoning.\n"
-                "Respond with exactly one line in this format: SCORE: [0.0-1.0]\n"
-                f"Reasoning: {reasoning}"
-            )
-            raw = ollama_chat(
-                model=model,
-                messages=[{"role": "user", "content": judge_prompt}],
-                host=host,
-                timeout=timeout,
-            )
-            try:
-                return max(0.0, min(1.0, float(re.findall(r"-?\d+(?:\.\d+)?", raw)[0])))
-            except Exception:
-                return 0.5
-
-        env.get_llm_judge_score = _local_judge  # type: ignore[assignment]
-
-    session_id, obs = env.create_task()
-    cumulative_reward = 0.0
-    print("\n=== INITIAL OBSERVATION ===")
-    print(obs.text)
     
-    raw_text = obs.manifest.get("raw_text", "")
+    rewards: List[float] = []
+    steps_taken = 0
+    success = False
 
-    # CHANGE 1: Explicitly ask for units to prevent the string mismatch error 
-    extraction_prompt = (
-    "Extract shipment details. You MUST return a FLAT JSON object (no nesting). "
-    "Use these exact keys: \"qty\", \"category\", \"Destination\", \"Origin\".\n"
-    "For \"category\", choose one of: Food, Nuclear, Pharmaceutical, Electronics.\n"
-    "Ensure 'qty' includes the units (e.g., '491 units').\n"
-    f"Text: {raw_text}")
-    
-    extraction_raw = ollama_chat(model=model, messages=[{"role": "user", "content": extraction_prompt}], host=host, timeout=timeout)
-    extraction = parse_first_json_object(extraction_raw)
-    print(f"DEBUG: LLM Extracted: {json.dumps(extraction, indent=2)}")
+    log_start(task=TASK_NAME, env=BENCHMARK, model=MODEL_NAME)
 
-    obs = await env.step(
-        session_id,
-        Cargo_Action(
+    try:
+        session_id, obs = env.create_task()
+        
+        # --- PHASE 1: EXTRACTION ---
+        steps_taken += 1
+        sys_p = "You are a logistics parser. Extract the following into a flat JSON: \"qty\", \"category\", \"Destination\", \"Origin\"."
+        usr_p = (f"Extract details from: {obs.manifest.get('raw_text', '')}."
+                "Rules:\n"
+                "1.'category' MUST be exactly one of: [Food, Nuclear, Pharmaceutical, Electronics].\n"
+                "2.'qty' MUST include the number and the unit (e.g., '150 units').\n"
+                "3.'Destination' and 'Origin' must be the full country names.\n"
+                "4. Output: Raw JSON only.")
+        
+        extraction_data = repair_json(get_llm_response(client, sys_p, usr_p))
+
+        obs = await env.step(session_id, Cargo_Action(
             action_type=Cargo_FetchState.SUBMIT_EXTRACT,
-            decision=json.dumps(extraction),
-        ),
-    )
-    print("\n=== AFTER EXTRACTION SUBMISSION ===")
-    print(obs.text)
-    cumulative_reward += obs.reward
-    print("Step Reward:", obs.reward)
-    print("Total Reward:", obs.total_reward if hasattr(obs, "total_reward") else cumulative_reward)
+            decision=json.dumps(extraction_data)
+        ))
+        rewards.append(obs.reward)
+        log_step(step=steps_taken, action="extract", reward=obs.reward, done=False, error=None)
 
-    # CHANGE 2: Proper ID-to-Name Mapping
-    # The environment rewards based on Law NAMES, but LLMs are more reliable with IDs.
-    # We map the IDs back to Names before submitting the action.
-    if obs.available_laws:
-        law_prompt = (
-        "SYSTEM: You are a Global Trade Custom Broker. You must provide a complete, bilateral compliance package JSON.\n"
-        "USER:Create a compliance package for this shipment. You MUST select laws to clear BOTH the Origin (Export) and Destination (Import).\n"
-        f"Shipment: {json.dumps(obs.current_extraction)}\n"
-        f"Available Law IDs: {json.dumps(obs.available_laws)}\n\n"
-        "Output ONLY this JSON format:\n"
-        "{\n"
-        "  \"laws\": [\"EXPORT_LAW_ID_HERE\", \"IMPORT_LAW_ID_HERE\"],\n"
-        "  \"regulator\": \"Name of the specific regulator of BOTH countries (e.g., FDA, DEA, or CBP)\",\n"
-        "  \"documents\": [\"List of required documents like Bill of Lading, Export License, etc.\"]\n"
-        "}"
-        )
-        law_raw = ollama_chat(model=model, messages=[{"role": "user", "content": law_prompt}], host=host, timeout=timeout)
-        # Parse the full compliance package.
-        compliance_package = parse_first_json_object(law_raw)
-        selected_ids = compliance_package.get("laws", [])
-        print(f"DEBUG: LLM Selected Law IDs: {selected_ids}")
+        # --- PHASE 2: BILATERAL LAW SELECTION ---
+        if obs.available_laws:
+            steps_taken += 1
 
-        # Map IDs back to Names for the environment's reward checker
-        id_to_name_map = {law["id"]: law["name"] for law in obs.available_laws}
-        valid_laws = []
-        for l_id in selected_ids:
-            if l_id in id_to_name_map:
-                valid_laws.append(id_to_name_map[l_id])
-            else:
-                print(f"WARNING: LLM hallucinated an invalid Law ID: {l_id}")
-                
-        compliance_package["laws"] = valid_laws
-        obs = await env.step(
-            session_id,
-            Cargo_Action(
+            sys_p = (
+            "You are a Customs Broker. You must output ONLY a JSON object. "
+            "STRICT SCHEMA REQUIRED: You must use these exact keys: 'laws', 'regulator', 'documents'. "
+            "STRICT RULE: You may ONLY select Law Names that appear in the 'Available Laws' list provided. Do not use your internal knowledge to suggest extra laws. If a law is not in the list, ignore it."
+            "Do NOT use 'Export_law' or 'Import_law' as keys. Put those names inside the 'laws' list."
+            "Do NOT use markdown backticks. Return ONLY the raw braces { }"
+            )
+
+            usr_p = (
+                f"Shipment: {json.dumps(obs.current_extraction)}\n"
+                f"Available Laws: {json.dumps(obs.available_laws)}\n\n"
+                "CRITICAL INSTRUCTIONS:\n"
+                "1. For the 'laws' key, you MUST provide a list of IDs (e.g., ['LAW_001', 'LAW_005']).\n"
+                "2. You MUST provide a single string for 'regulator' (e.g., 'CFIA and EU Commission').\n"
+                "3. You MUST include essential documents (e.g., ['Health Certificate', 'Invoice'])."
+            )
+            
+            pkg = repair_json(get_llm_response(client, sys_p, usr_p))
+            
+            # Map IDs to Names
+            id_map = {l["id"]: l["name"] for l in obs.available_laws}
+            valid_laws = [id_map[lid] for lid in pkg.get("laws", []) if lid in id_map]
+            pkg["laws"] = valid_laws
+
+            obs = await env.step(session_id, Cargo_Action(
                 action_type=Cargo_FetchState.PICK_LAW,
-                decision=json.dumps(compliance_package), # Environment receives the Names
-            ),
-        )
-        print("\n=== AFTER LAW SELECTION ===")
-        print(f"Status: {obs.text}")
-        cumulative_reward += obs.reward
-        print(f"Step Reward: {obs.reward}")
-        print(f"Total Reward: {obs.total_reward if hasattr(obs, 'total_reward') else cumulative_reward}")
-        print("Laws mapped and submitted:", compliance_package["laws"])
-        print(f"DEBUG: Compliance Package being sent to Env: {json.dumps(compliance_package, indent=2)}")
-    else:
-        print("\nNo laws available. Check if extraction correctly identified the Category and Destination.")
-        return
+                decision=json.dumps(pkg)
+            ))
+            rewards.append(obs.reward)
+            log_step(step=steps_taken, action="laws", reward=obs.reward, done=False, error=None)
 
-    # CHANGE 3: Better Reasoning Context
-    # We now pass the names of the selected laws to the reasoning prompt.
-    reasoning_prompt = (
-        "Provide a 3-sentence legal justification for why this complete compliance package "
-        "(laws, regulator, and documents) applies to this cargo.\n"
-        f"Shipment Context: {json.dumps(obs.current_extraction)}\n"
-        f"Selected Package: {json.dumps(compliance_package)}"
-    )
-    reasoning = ollama_chat(model=model, messages=[{"role": "user", "content": reasoning_prompt}], host=host, timeout=timeout)
+            # --- PHASE 3: FINAL AUDIT ---
+            steps_taken += 1
+            sys_p = "Provide 3 sentences of legal reasoning for this shipment."
+            usr_p = (f"Compliance Package: {json.dumps(pkg)}"
+                    "1. Explicitly mention the Laws and Regulators selected in Phase 2.\n"
+                    "2. Explain how the documents provided satisfy the specific Export rules of [Origin] and Import rules of [Destination].\n"
+                    "3. Use professional, cite-heavy terminology (e.g., 'Pursuant to...', 'In compliance with...').\n")
+            
+            reasoning = get_llm_response(client, sys_p, usr_p)
+            
+            obs = await env.step(session_id, Cargo_Action(
+                action_type=Cargo_FetchState.FINAL_VERDICT,
+                decision=reasoning
+            ))
+            rewards.append(obs.reward)
+            
+            # Success logic
+            success = True if sum(rewards) >= 2.0 else False
+            log_step(step=steps_taken, action="audit", reward=obs.reward, done=True, error=None)
 
-    obs = await env.step(
-        session_id,
-        Cargo_Action(
-            action_type=Cargo_FetchState.FINAL_VERDICT,
-            decision=reasoning,
-        ),
-    )
-    print("\n=== FINAL VERDICT ===")
-    print(obs.text)
-    cumulative_reward += obs.reward
-    print("Step Reward:", obs.reward)
-    print("Final Reward:", obs.total_reward if hasattr(obs, "total_reward") else cumulative_reward)
-    print("Reasoning:\n", reasoning)
-
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Test CargoComplianceEnv with a local Ollama model.")
-    parser.add_argument("--model", default="mistral", help="Ollama model name.")
-    parser.add_argument(
-        "--host",
-        default="http://localhost:11434/api/chat",
-        help="Ollama chat endpoint.",
-    )
-    parser.add_argument("--timeout", type=int, default=120, help="HTTP timeout in seconds.")
-    parser.add_argument(
-        "--use-ollama-judge",
-        action="store_true",
-        help="Use Ollama instead of Groq for final audit scoring.",
-    )
-    args = parser.parse_args()
-
-    asyncio.run(
-        run_episode(
-            model=args.model,
-            host=args.host,
-            timeout=args.timeout,
-            use_ollama_judge=args.use_ollama_judge,
-        )
-    )
-
+    except Exception as e:
+        log_step(step=steps_taken + 1, action="fail", reward=0.0, done=True, error=str(e))
+    finally:
+        log_end(success=success, steps=steps_taken, rewards=rewards)
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
