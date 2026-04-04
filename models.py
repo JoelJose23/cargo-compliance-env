@@ -3,9 +3,10 @@ from typing import List, Dict, Any, Optional
 from enum import Enum
 
 class Cargo_FetchState(str, Enum):
-    FETCH_INFO = "fetch_info" # Phase 1: Clarification
-    PICK_LAW = "pick_law"     # Phase 2: Compliance Selection (Laws, Regulators, Docs)
-    VERDICT = "verdict"      # Phase 3: Extraction submission & Final Reasoning
+    FETCH_INFO = "fetch_info" 
+    PICK_LAW = "pick_law"     
+    SUBMIT_EXTRACT = "submit_extract" 
+    FINAL_VERDICT = "final_verdict"
 
 class Cargo_Observation(Observation):
     text: str
@@ -15,6 +16,7 @@ class Cargo_Observation(Observation):
     laws: List[str]
     documents: List[str] = [] # To track selected paperwork
     regulator: Optional[str] = None #To track selected governing body
+    duties: List[str] = [] # To track any calculated duties/tariffs
     history: List[str]
     step: int
     reward: float = 0.0
@@ -28,16 +30,7 @@ class Cargo_State(State):
     questions_asked: int = 0
     total_reward: float = 0.0
     # Ensure this dictionary is initialized with the new keys in your environment.py
-    extraction_data: Optional[Dict[str, Any]] = {
-        "qty": None, 
-        "category": None, 
-        "Destination": None, 
-        "Origin": None, 
-        "laws": [], 
-        "regulator": None, 
-        "documents": [],
-        "duties": []
-    }
+    extraction_data: Optional[Dict[str, Any]] = None
     ground_truth: Optional[Dict[str, Any]] = None # Added for easier internal tracking
 
 class Cargo_Action(Action):

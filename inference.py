@@ -152,7 +152,7 @@ async def run_episode(model: str, host: str, timeout: int, use_ollama_judge: boo
     obs = await env.step(
         session_id,
         Cargo_Action(
-            action_type=Cargo_FetchState.VERDICT,
+            action_type=Cargo_FetchState.SUBMIT_EXTRACT,
             decision=json.dumps(extraction),
         ),
     )
@@ -167,15 +167,15 @@ async def run_episode(model: str, host: str, timeout: int, use_ollama_judge: boo
     # We map the IDs back to Names before submitting the action.
     if obs.available_laws:
         law_prompt = (
-        "SYSTEM: You are a Custom Broker. You must provide a complete compliance package JSON.\n"
-        "USER: Create a compliance package for this shipment. \n"
+        "SYSTEM: You are a Global Trade Custom Broker. You must provide a complete, bilateral compliance package JSON.\n"
+        "USER:Create a compliance package for this shipment. You MUST select laws to clear BOTH the Origin (Export) and Destination (Import).\n"
         f"Shipment: {json.dumps(obs.current_extraction)}\n"
         f"Available Law IDs: {json.dumps(obs.available_laws)}\n\n"
         "Output ONLY this JSON format:\n"
         "{\n"
-        "  \"laws\": [\"LAW_ID_HERE\"],\n"
-        "  \"regulator\": \"Name of the specific regulator (e.g., FDA, DEA, or CBP)\",\n"
-        "  \"documents\": [\"List of required documents like Bill of Lading, Invoice, etc.\"]\n"
+        "  \"laws\": [\"EXPORT_LAW_ID_HERE\", \"IMPORT_LAW_ID_HERE\"],\n"
+        "  \"regulator\": \"Name of the specific regulator of BOTH countries (e.g., FDA, DEA, or CBP)\",\n"
+        "  \"documents\": [\"List of required documents like Bill of Lading, Export License, etc.\"]\n"
         "}"
         )
         law_raw = ollama_chat(model=model, messages=[{"role": "user", "content": law_prompt}], host=host, timeout=timeout)
@@ -186,8 +186,14 @@ async def run_episode(model: str, host: str, timeout: int, use_ollama_judge: boo
 
         # Map IDs back to Names for the environment's reward checker
         id_to_name_map = {law["id"]: law["name"] for law in obs.available_laws}
-        compliance_package["laws"] = [id_to_name_map.get(l_id, l_id) for l_id in selected_ids]
-
+        valid_laws = []
+        for l_id in selected_ids:
+            if l_id in id_to_name_map:
+                valid_laws.append(id_to_name_map[l_id])
+            else:
+                print(f"WARNING: LLM hallucinated an invalid Law ID: {l_id}")
+                
+        compliance_package["laws"] = valid_laws
         obs = await env.step(
             session_id,
             Cargo_Action(
@@ -219,7 +225,7 @@ async def run_episode(model: str, host: str, timeout: int, use_ollama_judge: boo
     obs = await env.step(
         session_id,
         Cargo_Action(
-            action_type=Cargo_FetchState.VERDICT,
+            action_type=Cargo_FetchState.FINAL_VERDICT,
             decision=reasoning,
         ),
     )
