@@ -1,0 +1,17 @@
+Metadata-Version: 2.4
+Name: cargo-compliance-env
+Version: 0.1.0
+Summary: DeAI Dispatcher: Autonomous Cargo Compliance Environment
+Author: Joel Jose
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: openenv-core>=0.2.0
+Requires-Dist: fastapi
+Requires-Dist: uvicorn
+Requires-Dist: openai
+Requires-Dist: groq
+Requires-Dist: python-dotenv
+Requires-Dist: tenacity
+Requires-Dist: pydantic
+
+DeAI Dispatcher: Autonomous Cargo Compliance Environment
