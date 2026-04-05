@@ -19,7 +19,7 @@ build:
   python_version: "3.11"
   requirements: "requirements.txt"
   # If your environment requires a specific Docker base:
-  # image: "python:3.11-slim"
+  image: "python:3.11-slim"
 
 # 4. Evaluation Metrics
 metrics:

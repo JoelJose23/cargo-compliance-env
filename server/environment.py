@@ -3,6 +3,8 @@ import uuid
 import json
 import os
 from typing import Dict, Any, Tuple, Optional, List
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from groq import Groq
 from tenacity import retry, stop_after_attempt, wait_exponential
 from openenv.core.env_server import Environment
@@ -11,6 +13,16 @@ import re
 from dotenv import load_dotenv
 
 load_dotenv()
+
+app = FastAPI(title="Cargo Compliance Production API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 def _normalize_law_list(country: Dict[str, Any], rule_key: str) -> List[str]:
@@ -130,7 +142,9 @@ def load_environment_data(json_path: str) -> Tuple[List[Dict], List[Dict]]:
 
     return available_laws, prompt_pool
 
-AVAILABLE_LAWS, PROMPT_POOL = load_environment_data("data/final_dataset.json")
+_BASE_DIR = os.path.dirname(__file__)
+_DATA_PATH = os.path.abspath(os.path.join(_BASE_DIR, "..", "data", "final_dataset.json"))
+AVAILABLE_LAWS, PROMPT_POOL = load_environment_data(_DATA_PATH)
 
 
 class CargoComplianceEnv(Environment):
@@ -402,3 +416,50 @@ class CargoComplianceEnv(Environment):
             reward=step_reward,
             total_reward=state.total_reward
         )
+
+
+# --- API wiring ---
+env = CargoComplianceEnv()
+
+
+@app.post("/reset")
+async def reset() -> Dict[str, str]:
+    """Initialize a session for validation and return a simple status."""
+    env.reset()
+    return {"status": "ok"}
+
+
+@app.post("/step")
+async def step(action: Cargo_Action, session_id: str = None) -> Dict[str, Any]:
+    target_id = session_id or env.last_session_id
+
+    if not target_id:
+        raise HTTPException(status_code=400, detail="No active session. Call /reset first.")
+
+    try:
+        obs = await env.step(target_id, action)
+        done = bool(obs.text and "Episode Finished" in obs.text)
+        return {
+            "observation": obs,
+            "reward": obs.reward,
+            "done": done,
+            "total_reward": obs.total_reward,
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/tasks")
+async def get_tasks() -> Dict[str, Any]:
+    schema = Cargo_Action.model_json_schema()
+    return {
+        "tasks": [
+            {"id": "dynamic_cargo", "difficulty": "adaptive", "description": "Real-time compliance scenarios."}
+        ],
+        "action_schema": schema,
+    }
+
+
+@app.get("/health")
+async def health() -> Dict[str, str]:
+    return {"status": "online", "engine": "CargoComplianceEnv v1.0"}
