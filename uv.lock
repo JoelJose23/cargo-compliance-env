@@ -265,10 +265,12 @@ source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
     { name = "groq" },
+    { name = "httpx" },
     { name = "openai" },
     { name = "openenv-core" },
     { name = "pydantic" },
     { name = "python-dotenv" },
+    { name = "requests" },
     { name = "tenacity" },
     { name = "uvicorn" },
 ]
@@ -277,10 +279,12 @@ dependencies = [
 requires-dist = [
     { name = "fastapi" },
     { name = "groq" },
+    { name = "httpx" },
     { name = "openai" },
     { name = "openenv-core", specifier = ">=0.2.0" },
     { name = "pydantic" },
     { name = "python-dotenv" },
+    { name = "requests" },
     { name = "tenacity" },
     { name = "uvicorn" },
 ]
