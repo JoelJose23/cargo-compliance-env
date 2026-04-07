@@ -23,7 +23,7 @@ BENCHMARK = os.getenv("MY_ENV_V4_BENCHMARK", "CargoComplianceEnv")
 
 # Define max possible reward to normalize score to [0, 1]
 # Based on your logs: Extract(0.80) + Laws(1.67) + Audit(1.80) = ~4.27
-MAX_TOTAL_REWARD = 4.5 
+MAX_TOTAL_REWARD = 5.5 
 SUCCESS_SCORE_THRESHOLD = 0.44 # ~2.0 / 4.5
 
 # --- MANDATORY STDOUT LOGGERS ---
@@ -115,7 +115,12 @@ async def main() -> None:
 
         # --- EXTRACTION REPAIR LOOP ---
         questions_used = 0
-        while not obs.available_laws and questions_used < 3:
+        max_extract_retries = 3
+        extract_retries = 0
+
+        while not obs.available_laws and questions_used < 3 and extract_retries < max_extract_retries:
+            extract_retries += 1 # Prevents infinite re-submissions
+            
             sys_p = "Output ONLY JSON: { \"action\": \"ask\"|\"submit\", \"question\": \"...\", \"extraction\": {...} }"
             usr_p = f"Current extraction: {json.dumps(extraction_data)}\nEnv feedback: {obs.text}"
             

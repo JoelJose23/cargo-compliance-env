@@ -377,9 +377,9 @@ class CargoComplianceEnv(Environment):
                     
                     # Hallucination Penalty
                     extra_laws = selected_laws_set - export_truth - import_truth
-                    law_penalty = sum(1.0 if law in red_herrings else 0.5 for law in extra_laws)
+                    law_penalty = sum(0.3 if law in red_herrings else 0.5 for law in extra_laws)
                     
-                    step_reward += max(-1.0, (export_score + import_score) - law_penalty)
+                    step_reward += max(0.0, (export_score + import_score) - law_penalty)
 
                     # 2. Score Regulators (+1.0 Total: 0.5 for Origin, 0.5 for Dest)
                     agent_regulator = clean(decision.get("regulator", ""))
@@ -417,9 +417,9 @@ class CargoComplianceEnv(Environment):
                                 matched_required_docs.add(matched_doc)
 
                     doc_base_score = (len(matched_required_docs) / max(1, len(all_required_docs))) * 2.0
-                    doc_penalty = (len(unique_agent_docs) - len(matched_required_docs)) * 0.2
+                    doc_penalty = min(0.5, (len(unique_agent_docs) - len(matched_required_docs)) * 0.1)
                     
-                    step_reward += max(-1.0, doc_base_score - doc_penalty)
+                    step_reward += max(0.0, doc_base_score - doc_penalty)
                     
                     state.phase = "VERDICT"
                     obs_text = "Bilateral compliance verified. Final Step: Submit Reasoning."
