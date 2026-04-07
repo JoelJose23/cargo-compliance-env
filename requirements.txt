@@ -6,3 +6,5 @@ groq
 tenacity
 python-dotenv
 asyncio
+requests
+httpx
