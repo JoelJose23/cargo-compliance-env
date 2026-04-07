@@ -2,6 +2,8 @@ openenv-core>=0.2.0
 fastapi
 uvicorn
 openai
+httpx
+requests
 groq
 python-dotenv
 tenacity

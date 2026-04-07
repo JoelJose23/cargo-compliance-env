@@ -5,6 +5,6 @@ openenv-core>=0.2.0
 groq
 tenacity
 python-dotenv
-asyncio
 requests
 httpx
+openai
