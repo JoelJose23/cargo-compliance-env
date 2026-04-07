@@ -158,7 +158,7 @@ AVAILABLE_LAWS, PROMPT_POOL = load_environment_data(_DATA_PATH)
 
 
 class CargoComplianceEnv(Environment):
-    def __init__(self):
+    def __init__(self, base_url: str = "http://localhost:7860"):
         self.sessions: Dict[str, Cargo_State] = {}
         self.last_session_id:  Optional[str] = None
     
