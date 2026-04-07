@@ -101,15 +101,14 @@ def load_environment_data(json_path: str) -> Tuple[List[Dict], List[Dict]]:
         countries = industry_block.get("countries", [])
         
         if len(countries) >= 2:
-            for _ in range(3): 
+            # Increased range to 5 to get a better mix of full and broken prompts
+            for _ in range(5): 
                 origin, destination = random.sample(countries, 2)
                 
-                # NEW BILATERAL TRUTH
                 required_export_laws = _normalize_law_list(origin, "export_rules")
                 required_import_laws = _normalize_law_list(destination, "import_rules")
                 all_required_laws = required_export_laws + required_import_laws
                 
-                # Fix Red Herring Logic
                 red_herrings = [
                     law["name"] for law in available_laws 
                     if law["category"] != category
@@ -119,9 +118,22 @@ def load_environment_data(json_path: str) -> Tuple[List[Dict], List[Dict]]:
                 qty = f"{random.randint(50, 500)} units"
                 item = sample_goods.get(category, "Industrial Cargo")
                 reg_key = f"{category.lower()}_regulator"
+
+                # --- NEW: PROMPT VARIANT LOGIC ---
+                # This ensures the agent isn't always fed the answer on a silver platter.
+                prompt_variants = [
+                    f"Shipping {qty} of {item} from {origin['name']} to {destination['name']}.", # Perfect
+                    f"Shipping {qty} of {item} to {destination['name']}.",                       # Missing Origin
+                    f"I need to move {item} from {origin['name']} to {destination['name']}.",    # Missing Qty
+                    f"New shipment of {qty} from {origin['name']} to {destination['name']}.",    # Missing Category
+                    f"Requesting compliance check for cargo from {origin['name']} to {destination['name']}." # Barebones
+                ]
+                
+                # Pick one variant randomly for this entry in the pool
+                selected_text = random.choice(prompt_variants)
                 
                 prompt_pool.append({
-                    "text": f"Shipping {qty} of {item} from {origin['name']} to {destination['name']}.",
+                    "text": selected_text,
                     "truth": {
                         "qty": qty,
                         "category": category,
@@ -131,8 +143,6 @@ def load_environment_data(json_path: str) -> Tuple[List[Dict], List[Dict]]:
                         "origin_regulator": origin.get(reg_key, "N/A"),
                         "import_rules": destination.get("import_rules", {}),
                         "export_rules": origin.get("export_rules", {}),
-                        
-                        # UPDATED TRUTH KEYS
                         "required_export_laws": required_export_laws,
                         "required_import_laws": required_import_laws,
                         "all_required_laws": all_required_laws,
@@ -257,16 +267,41 @@ class CargoComplianceEnv(Environment):
         def clean(v): 
             return str(v or "").strip().lower()
 
-        # --- PHASE 1: EXTRACTION ---
+        # --- PHASE 1: EXTRACTION -
         if state.phase == "EXTRACTION":
             if action.action_type == Cargo_FetchState.FETCH_INFO:
                 if state.questions_asked < 3:
                     state.questions_asked += 1
+                    # The "Annoyance Cost": Asking a question costs a small amount of reward
                     step_reward = -0.1
-                    obs_text = f"Clarification provided. ({state.questions_asked}/3)"
+                    
+                    query = action.decision.lower()
+                    responses = []
+                    
+                    # The Environment (Customer) checks if the Seller (Agent) is asking 
+                    # about specific missing fields.
+                    if "origin" in query:
+                        responses.append(f"The shipment is originating from {truth['Origin']}")
+                    if "qty" in query or "quantity" in query:
+                        responses.append(f"The total quantity is {truth['qty']}")
+                    if "category" in query:
+                        responses.append(f"This falls under the {truth['category']} category")
+                    if "destination" in query or "dest" in query:
+                        responses.append(f"The final destination is {truth['Destination']}")
+
+                    if responses:
+                        # The "Customer" answers the question
+                        customer_reply = " and ".join(responses)
+                        obs_text = f"CUSTOMER REPLY: '{customer_reply}.' [Questions Used: {state.questions_asked}/3]"
+                    else:
+                        # The "Customer" is confused by the question
+                        obs_text = f"CUSTOMER REPLY: 'I don't understand that question. I'm shipping cargo.' [Questions Used: {state.questions_asked}/3]"
+                
                 else:
-                    obs_text = "Question limit reached. Submit JSON."
-            
+                    # The Customer is fed up and refuses to answer more
+                    step_reward = -0.2
+                    obs_text = "CUSTOMER: 'I've answered enough questions. Please just process the shipment!'"
+        
             elif action.action_type == Cargo_FetchState.SUBMIT_EXTRACT:
                 try:
                     data = json.loads(action.decision)
@@ -274,36 +309,44 @@ class CargoComplianceEnv(Environment):
                         raise ValueError("Expected a JSON object for extraction.")
                     state.extraction_data.update(data)
 
+                    # --- DENSE REWARD LOGIC ---
+                    fields = ["qty", "category", "Destination", "Origin"]
+                    correct_count = 0
+                    mismatches = []
+                    
+                    # 1. Check Qty (Fuzzy match)
                     ext_qty = clean(data.get("qty"))
                     truth_qty = clean(truth["qty"])
-                    qty_match = ext_qty in truth_qty or truth_qty in ext_qty
+                    if ext_qty in truth_qty or truth_qty in ext_qty:
+                        correct_count += 1
+                    else:
+                        mismatches.append("Qty")
+                        
+                    # 2. Check Standard Fields
+                    for f in ["category", "Destination", "Origin"]:
+                        if clean(data.get(f)) == clean(truth[f]):
+                            correct_count += 1
+                        else:
+                            mismatches.append(f)
 
-                    is_correct = (
-                        qty_match and 
-                        clean(data.get("category")) == clean(truth["category"]) and
-                        clean(data.get("Destination")) == clean(truth["Destination"]) and
-                        clean(data.get("Origin")) == clean(truth["Origin"])
-                    )
+                    # Calculate Partial Credit (0.25 per correct field)
+                    base_reward = (correct_count / len(fields)) * 1.0
                     
-                    if is_correct:
-                        step_reward = 1.0 - (state.questions_asked * 0.1)
+                    # Apply "Cost of Living" penalty for questions asked
+                    step_reward = base_reward - (state.questions_asked * 0.1)
+
+                    if correct_count == len(fields):
                         state.phase = "SELECTION"
                         obs_text = "Extraction Verified. Phase 2: Select Compliance Package."
                     else:
-                        step_reward = -1.0
-                        # Precise error logging for debugging
-                        mismatches = []
-                        if not qty_match: mismatches.append(f"Qty")
-                        if clean(data.get("category")) != clean(truth["category"]): mismatches.append("Category")
-                        if clean(data.get("Destination")) != clean(truth["Destination"]): mismatches.append("Destination")
-                        if clean(data.get("Origin")) != clean(truth["Origin"]): mismatches.append("Origin")
-                        obs_text = f"Extraction Failed: Mismatch in {', '.join(mismatches)}."
+                        # Don't fail immediately, let them try again, but penalize the mismatch
+                        step_reward -= 0.5 
+                        obs_text = f"Extraction Partial/Failed: Mismatch in {', '.join(mismatches)}."
                         
                 except (json.JSONDecodeError, TypeError, ValueError):
                     step_reward = -1.0
                     obs_text = "ERROR: Invalid JSON format. Please submit valid JSON."
 
-        # --- PHASE 2: COMPLIANCE SELECTION ---
         # --- PHASE 2: COMPLIANCE SELECTION (Bilateral Update) ---
         elif state.phase == "SELECTION":
             if action.action_type == Cargo_FetchState.PICK_LAW:
@@ -423,10 +466,10 @@ env = CargoComplianceEnv()
 
 
 @app.post("/reset")
-async def reset() -> Dict[str, str]:
-    """Initialize a session for validation and return a simple status."""
-    env.reset()
-    return {"status": "ok"}
+async def reset():
+    """Initialize a session and return the starting observation."""
+    obs, info = env.reset()
+    return obs
 
 
 @app.post("/step")

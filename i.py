@@ -17,7 +17,7 @@ from server.environment import CargoComplianceEnv
 
 # CONFIGURATION (Optimized for HF Mistral)
 API_BASE_URL = os.getenv("API_BASE_URL") or "https://api-inference.huggingface.co/v1"
-MODEL_NAME = os.getenv("MODEL_NAME") or "mistralai/Mistral-7B-Instruct-v0.3"
+MODEL_NAME = os.getenv("MODEL_NAME") or "Qwen/Qwen2.5-72B-Instruct"
 API_KEY = os.getenv("HF_TOKEN") or "your-hf-token-here"
 TASK_NAME = os.getenv("MY_ENV_V4_TASK", "cargo-compliance")
 BENCHMARK = os.getenv("MY_ENV_V4_BENCHMARK", "CargoComplianceEnv")
@@ -64,6 +64,16 @@ def get_llm_response(client: OpenAI, sys_p: str, usr_p: str) -> str:
     except Exception as e:
         return f"Error: {str(e)}"
 
+def merge_extraction(base: dict, update: dict) -> dict:
+    if base is None:
+        base = {}
+    if not isinstance(update, dict):
+        return base
+    for key, val in update.items():
+        if val is not None and str(val).strip() != "":
+            base[key] = val
+    return base
+
 async def main() -> None:
     client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
     env = CargoComplianceEnv()
@@ -95,6 +105,76 @@ async def main() -> None:
         ))
         rewards.append(obs.reward)
         log_step(step=steps_taken, action="extract", reward=obs.reward, done=False, error=None)
+
+        # --- EXTRACTION REPAIR LOOP (AGENT-DRIVEN QUESTIONS) ---
+        max_questions = 3
+        questions_used = 0
+        while not obs.available_laws and questions_used < max_questions:
+            sys_p = (
+                "You are a logistics extraction agent. Decide whether to ask ONE clarification question "
+                "or to submit a corrected extraction. Output ONLY JSON with this schema:\n"
+                "{ \"action\": \"ask\"|\"submit\", \"question\": \"...\", \"extraction\": {\"qty\":...,\"category\":...,\"Destination\":...,\"Origin\":...} }\n"
+                "Rules:\n"
+                "1) If unsure or the feedback indicates a mismatch, ask a short, specific question about the most uncertain field.\n"
+                "2) If confident, set action=submit and provide all four fields.\n"
+                "3) Do not include any extra keys or prose."
+            )
+            usr_p = (
+                f"Shipment text: {obs.manifest.get('raw_text', '')}\n"
+                f"Current extraction: {json.dumps(extraction_data)}\n"
+                f"Env feedback: {obs.text}\n"
+                f"Questions used: {questions_used} of {max_questions}\n"
+            )
+            decision = repair_json(get_llm_response(client, sys_p, usr_p))
+            action = (decision.get("action") or "submit").strip().lower()
+
+            if action == "ask" and questions_used < max_questions:
+                question = decision.get("question") or "Please confirm the origin, destination, category, and quantity."
+
+                steps_taken += 1
+                obs = await env.step(session_id, Cargo_Action(
+                    action_type=Cargo_FetchState.FETCH_INFO,
+                    decision=question
+                ))
+                rewards.append(obs.reward)
+                log_step(step=steps_taken, action="ask", reward=obs.reward, done=False, error=None)
+                questions_used += 1
+
+                # Agent updates extraction from customer reply
+                sys_p = (
+                    "You are updating a shipment extraction after a customer reply. "
+                    "Output ONLY JSON with keys: qty, category, Destination, Origin. "
+                    "Preserve existing values if not updated by the reply."
+                )
+                usr_p = (
+                    f"Current extraction: {json.dumps(extraction_data)}\n"
+                    f"Customer reply: {obs.text}\n"
+                    "Return updated extraction JSON only."
+                )
+                update = repair_json(get_llm_response(client, sys_p, usr_p))
+                extraction_data = merge_extraction(extraction_data, update)
+
+                steps_taken += 1
+                obs = await env.step(session_id, Cargo_Action(
+                    action_type=Cargo_FetchState.SUBMIT_EXTRACT,
+                    decision=json.dumps(extraction_data)
+                ))
+                rewards.append(obs.reward)
+                log_step(step=steps_taken, action="extract_retry", reward=obs.reward, done=False, error=None)
+            else:
+                update = decision.get("extraction") if isinstance(decision, dict) else None
+                extraction_data = merge_extraction(extraction_data, update or {})
+
+                steps_taken += 1
+                obs = await env.step(session_id, Cargo_Action(
+                    action_type=Cargo_FetchState.SUBMIT_EXTRACT,
+                    decision=json.dumps(extraction_data)
+                ))
+                rewards.append(obs.reward)
+                log_step(step=steps_taken, action="extract_retry", reward=obs.reward, done=False, error=None)
+
+            if "answered enough questions" in (obs.text or "").lower():
+                break
 
         # --- PHASE 2: BILATERAL LAW SELECTION ---
         if obs.available_laws:
@@ -148,7 +228,7 @@ async def main() -> None:
             rewards.append(obs.reward)
             
             # Success logic
-            success = True if sum(rewards) >= 2.0 else False
+            success = True if sum(rewards) >= 1.5 else False
             log_step(step=steps_taken, action="audit", reward=obs.reward, done=True, error=None)
 
     except Exception as e:

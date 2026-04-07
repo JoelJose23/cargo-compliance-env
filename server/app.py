@@ -52,7 +52,6 @@ async def health():
     return {"status": "online", "engine": "CargoComplianceEnv v1.0"}
 
 def main():
-    """This function is what [project.scripts] 'server' calls."""
     uvicorn.run(app, host="0.0.0.0", port=7860)
 
 if __name__ == "__main__":

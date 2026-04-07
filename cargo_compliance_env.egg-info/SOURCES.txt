@@ -7,6 +7,7 @@ cargo_compliance_env.egg-info/entry_points.txt
 cargo_compliance_env.egg-info/requires.txt
 cargo_compliance_env.egg-info/top_level.txt
 server/__init__.py
+server/app.py
 server/environment.py
 server/main.py
 server/models.py
