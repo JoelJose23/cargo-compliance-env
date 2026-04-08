@@ -64,9 +64,31 @@ except ImportError:
             decision: Optional[str] = None
 
 
+# --- SMART ENVIRONMENT DETECTOR ---
+def get_active_env_url() -> str:
+    """Prioritize Validator Env Var -> Hugging Face Space -> Localhost Fallback"""
+    # 1. If the OpenEnv validator injects a specific URL, always use it.
+    if "WORLD_ENV_URL" in os.environ:
+        return os.environ["WORLD_ENV_URL"]
+    
+    # 2. Try the Hugging Face Space
+    hf_url = "https://ssethackathonteam-cargo-compliance-env.hf.space"
+    print(f"Pinging HF Space at {hf_url}...")
+    try:
+        # A quick ping to see if the space is awake
+        if requests.get(f"{hf_url}/reset", timeout=5).status_code in [200, 405]:
+            print("✅ HF Space is awake and responding.")
+            return hf_url
+    except Exception:
+        pass
+    
+    # 3. Fallback to Localhost Docker container
+    print("⚠️ HF Space unreachable or asleep. Falling back to localhost...")
+    return "http://localhost:7860"
+
+
 # --- MANDATORY HACKATHON CONFIGURATION ---
-# IMPORTANT: Default to localhost:7860 so the validator tests the local docker container, not the HF space!
-WORLD_ENV_URL = os.getenv("WORLD_ENV_URL", "http://localhost:7860")
+WORLD_ENV_URL = get_active_env_url()
 API_KEY = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
 API_BASE_URL = os.getenv("API_BASE_URL", "https://api-inference.huggingface.co/v1")
 MODEL_NAME = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
@@ -80,7 +102,7 @@ EXTRACTION_FIELDS = ("qty", "category", "Destination", "Origin")
 
 # --- THE CRITICAL "WAIT FOR READY" BLOCK ---
 def wait_for_ready(url: str, attempts: int = 15) -> bool:
-    """Wait for the FastAPI server to actually start inside the Docker container."""
+    """Wait for the FastAPI server to actually start."""
     print(f"Checking if environment at {url} is ready...")
     for i in range(attempts):
         try:
@@ -96,7 +118,7 @@ def wait_for_ready(url: str, attempts: int = 15) -> bool:
 
 class CargoEnvClient:
     """HTTP client that connects the agent to the Cargo environment."""
-    def __init__(self, base_url: str = "http://localhost:7860", timeout: float = 30.0):
+    def __init__(self, base_url: str = WORLD_ENV_URL, timeout: float = 30.0):
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
 
@@ -190,7 +212,6 @@ async def main() -> None:
     rewards, steps_taken, score, success = [], 0, 0.0, False
     log_start(task=TASK_NAME, env=BENCHMARK, model=MODEL_NAME)
 
-    # CRITICAL FIX 1: Wait for Docker Environment
     if not wait_for_ready(WORLD_ENV_URL):
         log_step(step=1, action="fail", reward=0.0, done=True, error="Environment server timeout.")
         log_end(success=False, steps=0, score=0.0, rewards=[])
@@ -259,7 +280,9 @@ async def main() -> None:
             rewards.append(_to_float(obs.reward))
             log_step(step=steps_taken, action="audit", reward=rewards[-1], done="episode finished" in (obs.text or "").lower(), error=None)
 
-        score = min(max(sum(rewards) / MAX_TOTAL_REWARD if MAX_TOTAL_REWARD > 0 else 0.0, 0.0), 1.0)
+        # --- CRITICAL SCORE JITTER FIX ---
+        raw_score = sum(rewards) / MAX_TOTAL_REWARD if MAX_TOTAL_REWARD > 0 else 0.0
+        score = min(max(raw_score, 0.001), 0.999) # Strictly clamps the score between 0 and 1
         success = score >= SUCCESS_SCORE_THRESHOLD
 
     except Exception as exc:
@@ -269,7 +292,6 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    # CRITICAL FIX 2: Prevent unhandled exception non-zero exits
     try:
         asyncio.run(main())
     except KeyboardInterrupt:

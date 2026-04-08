@@ -491,17 +491,16 @@ async def step(action: Cargo_Action, session_id: str = None) -> Dict[str, Any]:
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
 
-
 @app.get("/tasks")
 async def get_tasks() -> Dict[str, Any]:
-    schema = Cargo_Action.model_json_schema()
     return {
         "tasks": [
-            {"id": "dynamic_cargo", "difficulty": "adaptive", "description": "Real-time compliance scenarios."}
+            {"id": "cargo_food", "description": "Food Industry Compliance"},
+            {"id": "cargo_electronics", "description": "Electronics Export Control"},
+            {"id": "cargo_pharma", "description": "Pharmaceutical Regulations"}
         ],
-        "action_schema": schema,
+        "action_schema": Cargo_Action.model_json_schema(),
     }
-
 
 @app.get("/health")
 async def health() -> Dict[str, str]:
