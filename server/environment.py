@@ -5,7 +5,7 @@ import os
 from typing import Dict, Any, Tuple, Optional, List
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from groq import Groq
+from openai import OpenAI
 from tenacity import retry, stop_after_attempt, wait_exponential
 from openenv.core.env_server import Environment
 from .models import Cargo_Action, Cargo_Observation, Cargo_FetchState, Cargo_State
@@ -41,7 +41,10 @@ def _normalize_law_list(country: Dict[str, Any], rule_key: str) -> List[str]:
     return []
 
 # --- Initialize Groq Client ---
-client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+# --- Initialize OpenAI Client (using judges' proxy) ---
+client = OpenAI(
+    base_url=os.environ.get("API_BASE_URL", "https://api.groq.com/openai/v1"), 
+    api_key=os.environ.get("API_KEY", os.environ.get("GROQ_API_KEY")))         
 
 # --- Data Loading Engine ---
 def load_environment_data(json_path: str) -> Tuple[List[Dict], List[Dict]]:
@@ -182,6 +185,9 @@ class CargoComplianceEnv(Environment):
         
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
     async def get_llm_judge_score(self, reasoning: str, extraction: dict, truth: dict) -> float:
+        # Use the model name provided by judges, or fallback to a standard one
+        target_model = os.environ.get("MODEL_NAME", "llama-3.3-70b-versatile")
+        
         compliance_context = {
             "Expected_Regulator": truth["dest_regulator"],
             "Expected_Import_Docs": truth["import_rules"].get("documents", []),
@@ -194,16 +200,14 @@ class CargoComplianceEnv(Environment):
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are a strict customs auditor. Grade the agent's reasoning from 0.0 to 1.0. "
-                                   "Respond with ONLY a number. Example: 0.8"
+                        "content": "You are a strict customs auditor. Grade the agent's reasoning from 0.0 to 1.0. Respond with ONLY a number."
                     },
                     {
                         "role": "user",
                         "content": f"Target Rules: {json.dumps(compliance_context)}\nAgent Reasoning: {reasoning}"
                     }
                 ],
-                # FIX: Use a valid Groq model ID
-                model="llama-3.3-70b-versatile", 
+                model=target_model, # Use the dynamic model name
                 max_tokens=10,
                 temperature=0,
             )

@@ -6,7 +6,6 @@ import sys
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
-
 import httpx
 import requests
 from dotenv import load_dotenv
@@ -66,25 +65,32 @@ except ImportError:
 
 # --- SMART ENVIRONMENT DETECTOR ---
 def get_active_env_url() -> str:
-    """Prioritize Validator Env Var -> Hugging Face Space -> Localhost Fallback"""
+    """Prioritize Validator Env Var -> Port Hunter -> Localhost Fallback"""
     # 1. If the OpenEnv validator injects a specific URL, always use it.
     if "WORLD_ENV_URL" in os.environ:
-        return os.environ["WORLD_ENV_URL"]
+        return os.environ["WORLD_ENV_URL"].rstrip("/")
     
-    # 2. Try the Hugging Face Space
+    # 2. THE PORT HUNTER: Try 8000 (Validator Standard) then 7860 (HF Standard)
+    for port in ["8000", "7860"]:
+        test_url = f"http://localhost:{port}"
+        try:
+            # Use a very short timeout so we don't waste precious submission time
+            if requests.get(f"{test_url}/health", timeout=0.5).status_code == 200:
+                print(f"✅ Found environment on port {port}")
+                return test_url
+        except:
+            continue
+
+    # 3. Last Resort: Try the remote HF Space if local fails
     hf_url = "https://ssethackathonteam-cargo-compliance-env.hf.space"
-    print(f"Pinging HF Space at {hf_url}...")
     try:
-        # A quick ping to see if the space is awake
-        if requests.get(f"{hf_url}/reset", timeout=5).status_code in [200, 405]:
-            print("✅ HF Space is awake and responding.")
+        if requests.get(hf_url, timeout=1).status_code < 400:
             return hf_url
-    except Exception:
+    except:
         pass
     
-    # 3. Fallback to Localhost Docker container
-    print("⚠️ HF Space unreachable or asleep. Falling back to localhost...")
-    return "http://localhost:7860"
+    # 4. Final Fallback (Default to 8000 for the validator)
+    return "http://localhost:8000"
 
 
 # --- MANDATORY HACKATHON CONFIGURATION ---
