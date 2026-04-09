@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "cargo-compliance-env"
 version = "0.1.0"
-description = "DeAI Dispatcher: Autonomous Cargo Compliance Environment"
+description = "Bilateral Cargo Compliance & Regulatory RL Environment"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [{ name = "Joel Jose" }]
@@ -23,11 +23,16 @@ dependencies = [
 ]
 
 [project.scripts]
-server = "server.app:main"
+# Entry point to launch the FastAPI environment server
+cargo-env = "server.environment:main"
+# Entry point to launch the agent runner
+cargo-agent = "i:main"
 
 [tool.setuptools]
+# Ensures both the server logic and your agent script are discoverable
 packages = ["server"]
+py-modules = ["i"]
 
 [tool.setuptools.package-data]
-# If you need your JSON files bundled, this includes them
+# Includes the final_dataset.json and openenv.yaml in the distribution
 "*" = ["*.json", "*.yaml"]
