@@ -6,6 +6,7 @@ from typing import Dict, Any, Tuple, Optional, List
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI
+from pydantic import BaseModel
 from tenacity import retry, stop_after_attempt, wait_exponential
 from openenv.core.env_server import Environment
 from .models import Cargo_Action, Cargo_Observation, Cargo_FetchState, Cargo_State
@@ -13,6 +14,10 @@ import re
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# Define the expected JSON payload
+class ResetRequest(BaseModel):
+    task_id: Optional[str] = None
 
 app = FastAPI(title="Cargo Compliance Production API")
 
@@ -27,7 +32,6 @@ app.add_middleware(
 
 def _normalize_law_list(country: Dict[str, Any], rule_key: str) -> List[str]:
     """Return a non-empty law list for import/export scoring.
-
     Dataset variants may store laws under `country["laws"]` instead of
     `country["import_rules"]["laws"]` / `country["export_rules"]["laws"]`.
     """
@@ -40,11 +44,9 @@ def _normalize_law_list(country: Dict[str, Any], rule_key: str) -> List[str]:
         return country_laws
     return []
 
-# --- Initialize Groq Client ---
-# --- Initialize OpenAI Client (using judges' proxy) ---
 client = OpenAI(
-    base_url=os.environ.get("API_BASE_URL", "https://api.groq.com/openai/v1"), 
-    api_key=os.environ.get("API_KEY", os.environ.get("GROQ_API_KEY")))         
+    base_url=os.environ["API_BASE_URL"] or "https://api.groq.com/openai/v1",
+    api_key=os.getenv("GROQ_API_KEY") or os.environ["API_KEY"] or os.getenv("HF_TOKEN"))   
 
 # --- Data Loading Engine ---
 def load_environment_data(json_path: str) -> Tuple[List[Dict], List[Dict]]:
@@ -166,9 +168,14 @@ class CargoComplianceEnv(Environment):
         self.last_session_id:  Optional[str] = None
     
     def reset(self, seed = None, options = None) -> Tuple[Cargo_Observation, Dict[str, Any]]:
-        session_id, obs = self.create_task()
+        # Extract the task_id from the options dictionary if it exists
+        task_id = options.get("task_id") if options else None
+        
+        # Pass the task_id down to your create_task function
+        session_id, obs = self.create_task(task_id=task_id)
+        
         self.last_session_id = session_id
-        return obs, {"session_id":session_id}
+        return obs, {"session_id": session_id}
     
     def state(self) -> Dict[str,Any]:
         if not self.last_session_id or self.last_session_id not in self.sessions:
@@ -225,9 +232,26 @@ class CargoComplianceEnv(Environment):
             print(f"JUDGE ERROR: {e}") 
             return 0.5
 
-    def create_task(self) -> Tuple[str, Cargo_Observation]:
+    def create_task(self, task_id: Optional[str] = None) -> Tuple[str, Cargo_Observation]:
         session_id = str(uuid.uuid4())
-        selected_task = random.choice(PROMPT_POOL)
+        
+        # Mapping task_ids to your category_map keys
+        task_mapping = {
+            "cargo_food": "Food",
+            "cargo_nuclear": "Nuclear",
+            "cargo_pharma": "Pharmaceutical",
+            "cargo_electronics": "Electronics"
+        }
+
+        # DUAL-MODE LOGIC
+        if task_id and task_id in task_mapping:
+            target_category = task_mapping[task_id]
+            # Filter pool for specific industry tasks
+            filtered_pool = [p for p in PROMPT_POOL if p["truth"]["category"] == target_category]
+            selected_task = random.choice(filtered_pool) if filtered_pool else random.choice(PROMPT_POOL)
+        else:
+            # Infinite Mode: Full random
+            selected_task = random.choice(PROMPT_POOL)
         
         state = Cargo_State(
             task_id=session_id,
@@ -236,7 +260,6 @@ class CargoComplianceEnv(Environment):
             phase="EXTRACTION",
             questions_asked=0,
             total_reward=0.0,
-            # Added regulator and documents to initial state
             extraction_data={"qty": None, "category": None, "Destination": None, "Origin": None, "laws": [], "regulator": None, "documents": [], "duties": []}
         )
         state.ground_truth = selected_task["truth"]
@@ -318,17 +341,19 @@ class CargoComplianceEnv(Environment):
                     correct_count = 0
                     mismatches = []
                     
-                    # 1. Check Qty (Fuzzy match)
+                    # 1. Check Qty (Fuzzy match FIX)
                     ext_qty = clean(data.get("qty"))
                     truth_qty = clean(truth["qty"])
-                    if ext_qty in truth_qty or truth_qty in ext_qty:
+                    # FIXED: Ensure ext_qty is not empty before checking 'in'
+                    if ext_qty and (ext_qty in truth_qty or truth_qty in ext_qty):
                         correct_count += 1
                     else:
                         mismatches.append("Qty")
                         
-                    # 2. Check Standard Fields
+                    # 2. Check Standard Fields (FIX: Ensure no empty matches)
                     for f in ["category", "Destination", "Origin"]:
-                        if clean(data.get(f)) == clean(truth[f]):
+                        ext_val = clean(data.get(f))
+                        if ext_val and ext_val == clean(truth[f]):
                             correct_count += 1
                         else:
                             mismatches.append(f)
@@ -345,7 +370,9 @@ class CargoComplianceEnv(Environment):
                     else:
                         # Don't fail immediately, let them try again, but penalize the mismatch
                         step_reward -= 0.5 
-                        obs_text = f"Extraction Partial/Failed: Mismatch in {', '.join(mismatches)}."
+                        
+                        # THE FIX: Explicitly instruct the LLM to break the loop
+                        obs_text = f"Extraction Failed: Missing or incorrect data for {', '.join(mismatches)}. SYSTEM DIRECTIVE: Do not guess. You MUST use the 'FETCH_INFO' tool to ask the customer for this missing data."
                         
                 except (json.JSONDecodeError, TypeError, ValueError):
                     step_reward = -1.0
@@ -470,11 +497,16 @@ env = CargoComplianceEnv()
 
 
 @app.post("/reset")
-async def reset():
+async def reset(request: Optional[ResetRequest] = None):
     """Initialize a session and return the starting observation."""
-    obs, info = env.reset()
-    return obs
-
+    # Safely get the task_id if the request body was provided
+    req_task_id = request.task_id if request else None
+    
+    # Pass it into the environment via the options dictionary
+    obs, info = env.reset(options={"task_id": req_task_id})
+    
+    # Return both the observation and the session_id so the agent can track it
+    return {"observation": obs, "session_id": info["session_id"]}
 
 @app.post("/step")
 async def step(action: Cargo_Action, session_id: str = None) -> Dict[str, Any]:

@@ -3,29 +3,41 @@ name: "cargo-compliance-challenge"
 benchmark: "CargoComplianceEnv"
 
 # 1. Execution Settings
+# Note: Ensure i.py reads the TASK_ID env var to pass to the /reset call
 entrypoint: "python3 i.py"
-timeout: 300 # 5 minutes per episode
+timeout: 300 
 memory_limit: "4Gi"
 
-# 2. Environment Configuration
+# 2. Tasks Definition (CRITICAL for the Validator)
+# This satisfies the "3 tasks with graders" error by explicitly listing them.
+tasks:
+  - id: "cargo_food"
+    description: "Evaluate compliance for agricultural and food shipments."
+    weight: 1.0
+  - id: "cargo_electronics"
+    description: "Evaluate export controls for dual-use electronic goods."
+    weight: 1.0
+  - id: "cargo_pharma"
+    description: "Evaluate regulatory compliance for pharmaceutical APIs."
+    weight: 1.0
+
+# 3. Environment Configuration
 env_vars:
-  API_BASE_URL: "https://api-inference.huggingface.co/v1"
+  API_BASE_URL: "${API_BASE_URL}"
   MODEL_NAME: "Qwen/Qwen2.5-72B-Instruct"
   WORLD_ENV_URL: "https://SSETHackathonTeam-cargo-compliance-env.hf.space"
-  MY_ENV_V4_TASK: "cargo-compliance"
-  MY_ENV_V4_BENCHMARK: "CargoComplianceEnv"
-  # Provide either HF_TOKEN or API_KEY in Secrets. i.py accepts both.
-  HF_TOKEN: "${HF_TOKEN}"
+  # The validator will inject the task ID into one of these based on its config
+  # We use a generic one that i.py can grab:
+  CURRENT_TASK_ID: "${TASK_ID}" 
   API_KEY: "${API_KEY}"
 
-# 3. Build Requirements
+# 4. Build Requirements
 build:
   python_version: "3.11"
   requirements: "requirements.txt"
-  # If your environment requires a specific Docker base:
   image: "python:3.11-slim"
 
-# 4. Evaluation Metrics
+# 5. Evaluation Metrics
 metrics:
   - name: "total_reward"
     goal: "maximize"

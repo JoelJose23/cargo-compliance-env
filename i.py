@@ -8,16 +8,15 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 import httpx
 import requests
-from dotenv import load_dotenv
 from openai import OpenAI
-
-load_dotenv()
+from dotenv import load_dotenv
 
 # Setup project paths cleanly
 ROOT = Path(__file__).resolve().parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 sys.path.append(str(ROOT / "server"))
+load_dotenv(ROOT / ".env")
 
 # --- BULLETPROOF MODEL IMPORTS ---
 try:
@@ -65,58 +64,63 @@ except ImportError:
 
 # --- SMART ENVIRONMENT DETECTOR ---
 def get_active_env_url() -> str:
-    """Prioritize Validator Env Var -> Port Hunter -> Localhost Fallback"""
-    # 1. If the OpenEnv validator injects a specific URL, always use it.
-    if "WORLD_ENV_URL" in os.environ:
+    # 1. Trust the validator first
+    if os.environ.get("WORLD_ENV_URL"):
         return os.environ["WORLD_ENV_URL"].rstrip("/")
     
-    # 2. THE PORT HUNTER: Try 8000 (Validator Standard) then 7860 (HF Standard)
-    for port in ["8000", "7860"]:
+    # 2. PROBE PORTS (Checking /tasks instead of /health)
+    # Increased timeout to 1.0 for stability
+    for port in ["8000", "7860"]: 
         test_url = f"http://localhost:{port}"
         try:
-            # Use a very short timeout so we don't waste precious submission time
-            if requests.get(f"{test_url}/health", timeout=0.5).status_code == 200:
+            # We check /tasks because your environment.py definitely has it
+            response = requests.get(f"{test_url}/tasks", timeout=1.0)
+            if requests.get(f"{test_url}/tasks", timeout=0.5).status_code == 200:
                 print(f"✅ Found environment on port {port}")
                 return test_url
         except:
             continue
 
-    # 3. Last Resort: Try the remote HF Space if local fails
+    # 3. Last Resort: Remote
     hf_url = "https://ssethackathonteam-cargo-compliance-env.hf.space"
-    try:
-        if requests.get(hf_url, timeout=1).status_code < 400:
-            return hf_url
-    except:
-        pass
-    
-    # 4. Final Fallback (Default to 8000 for the validator)
-    return "http://localhost:8000"
+    return hf_url 
 
 
 # --- MANDATORY HACKATHON CONFIGURATION ---
 WORLD_ENV_URL = get_active_env_url()
-API_KEY = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
-API_BASE_URL = os.getenv("API_BASE_URL", "https://api-inference.huggingface.co/v1")
-MODEL_NAME = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
+API_BASE_URL = os.environ.get("API_BASE_URL", "https://router.huggingface.co/v1")
+API_KEY = os.environ.get("API_KEY") or os.getenv("HF_TOKEN")
+MODEL_NAME   = os.getenv("MODEL_NAME",   "Qwen/Qwen2.5-72B-Instruct")
 TASK_NAME = os.getenv("MY_ENV_V4_TASK", "cargo-compliance")
 BENCHMARK = os.getenv("MY_ENV_V4_BENCHMARK", "CargoComplianceEnv")
 MAX_TOTAL_REWARD = float(os.getenv("MAX_TOTAL_REWARD", "5.5"))
 SUCCESS_SCORE_THRESHOLD = float(os.getenv("SUCCESS_SCORE_THRESHOLD", "0.44"))
-
 EXTRACTION_FIELDS = ("qty", "category", "Destination", "Origin")
+REQUESTED_TASK_ID = (
+    os.getenv("CARGO_TASK_ID")
+    or os.getenv("RESET_TASK_ID")
+    or (TASK_NAME if isinstance(TASK_NAME, str) and TASK_NAME.startswith("cargo_") else None)
+)
+DEBUG_RUN = os.getenv("DEBUG_RUN", "0").strip().lower() in {"1", "true", "yes"}
 
 
 # --- THE CRITICAL "WAIT FOR READY" BLOCK ---
-def wait_for_ready(url: str, attempts: int = 15) -> bool:
-    """Wait for the FastAPI server to actually start."""
+def wait_for_ready(url: str, attempts: int = 8) -> bool:
     print(f"Checking if environment at {url} is ready...")
     for i in range(attempts):
         try:
-            resp = requests.get(f"{url}/health", timeout=3)
-            if resp.status_code == 200:
-                print("✅ Connected to Environment.")
+            # Again, check /tasks, NOT /health
+            if requests.get(f"{url}/tasks", timeout=3).status_code == 200:
                 return True
         except Exception:
+            # If we are stuck on localhost:8000 but the server might be on 7860,
+            # let's re-run the discovery inside the loop!
+            if "localhost" in url:
+                new_url = get_active_env_url()
+                if new_url != url:
+                    print(f"🔄 Re-routing to {new_url}...")
+                    return wait_for_ready(new_url, attempts - i)
+            
             print(f"Waiting for server... (Attempt {i+1}/{attempts})")
             time.sleep(3)
     return False
@@ -128,9 +132,12 @@ class CargoEnvClient:
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
 
-    def create_task(self) -> Tuple[Optional[str], Cargo_Observation]:
+    def create_task(self, task_id: Optional[str] = None) -> Tuple[Optional[str], Cargo_Observation]:
         try:
-            res = requests.post(f"{self.base_url}/reset", timeout=self.timeout)
+            payload: Dict[str, Any] = {}
+            if isinstance(task_id, str) and task_id.strip():
+                payload["task_id"] = task_id.strip()
+            res = requests.post(f"{self.base_url}/reset", json=payload, timeout=self.timeout)
             res.raise_for_status()
         except Exception as exc:
             raise RuntimeError(f"❌ /reset failed: {exc}") from exc
@@ -159,7 +166,13 @@ class CargoEnvClient:
 
 # --- LOGGERS & HELPERS ---
 def log_start(task: str, env: str, model: str) -> None: print(f"[START] task={task} env={env} model={model}", flush=True)
-def log_step(step: int, action: str, reward: float, done: bool, error: Optional[str]) -> None: print(f"[STEP] step={step} action={str(action).replace(chr(10), ' ')} reward={reward:.2f} done={str(done).lower()} error={chr(34)}{error}{chr(34) if error else 'null'}", flush=True)
+def log_step(step: int, action: str, reward: float, done: bool, error: Optional[str]) -> None:
+    error_json = json.dumps(error if error else None)
+    print(
+        f"[STEP] step={step} action={str(action).replace(chr(10), ' ')} "
+        f"reward={reward:.2f} done={str(done).lower()} error={error_json}",
+        flush=True,
+    )
 def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> None: print(f"[END] success={str(success).lower()} steps={steps} score={score:.3f} rewards={','.join(f'{r:.2f}' for r in rewards)}", flush=True)
 def _to_float(value: Any, default: float = 0.0) -> float:
     try: return float(value)
@@ -190,19 +203,126 @@ def _merge_extraction(base: Dict[str, Any], update: Any) -> Dict[str, Any]:
 
 def _ensure_extraction_shape(ext: Dict[str, Any]) -> Dict[str, str]: return {k: _normalize_scalar(ext.get(k)) for k in EXTRACTION_FIELDS}
 def _normalize_documents(raw: Any) -> List[str]: return list(dict.fromkeys([_normalize_scalar(i) for i in (raw if isinstance(raw, list) else [raw])] )) if raw else []
+def _mismatches_from_feedback(text: str) -> List[str]:
+    if not text:
+        return []
+    m = re.search(r"Mismatch in\s+([^\.]+)", text, flags=re.IGNORECASE)
+    if not m:
+        return []
+    tokens = [t.strip() for t in m.group(1).split(",")]
+    cleaned = []
+    for token in tokens:
+        t = token.lower()
+        if "qty" in t or "quantity" in t:
+            cleaned.append("qty")
+        elif "category" in t:
+            cleaned.append("category")
+        elif "destination" in t:
+            cleaned.append("Destination")
+        elif "origin" in t:
+            cleaned.append("Origin")
+    return list(dict.fromkeys(cleaned))
+
+def _extract_customer_reply_fields(text: str) -> Dict[str, str]:
+    parsed: Dict[str, str] = {}
+    if not text:
+        return parsed
+    stop = r"(?=\s+and\s+|[\.'])"
+    origin = re.search(rf"originating from\s+(.+?){stop}", text, flags=re.IGNORECASE)
+    qty = re.search(rf"quantity is\s+(.+?){stop}", text, flags=re.IGNORECASE)
+    category = re.search(rf"under the\s+(.+?)\s+category{stop}", text, flags=re.IGNORECASE)
+    destination = re.search(rf"destination is\s+(.+?){stop}", text, flags=re.IGNORECASE)
+    if origin:
+        parsed["Origin"] = origin.group(1).strip()
+    if qty:
+        parsed["qty"] = qty.group(1).strip()
+    if category:
+        parsed["category"] = category.group(1).strip()
+    if destination:
+        parsed["Destination"] = destination.group(1).strip()
+    return parsed
+
+def _extract_manifest_fields(text: str) -> Dict[str, str]:
+    parsed: Dict[str, str] = {}
+    if not text:
+        return parsed
+
+    qty_match = re.search(r"\b(\d+\s+units?)\b", text, flags=re.IGNORECASE)
+    if qty_match:
+        parsed["qty"] = qty_match.group(1).strip()
+
+    route_match = re.search(r"\bfrom\s+([A-Za-z][A-Za-z\s-]*?)\s+to\s+([A-Za-z][A-Za-z\s-]*?)(?:[\.]|$)", text, flags=re.IGNORECASE)
+    if route_match:
+        parsed["Origin"] = route_match.group(1).strip()
+        parsed["Destination"] = route_match.group(2).strip()
+    else:
+        dest_match = re.search(r"\bto\s+([A-Za-z][A-Za-z\s-]*?)(?:[\.]|$)", text, flags=re.IGNORECASE)
+        if dest_match:
+            parsed["Destination"] = dest_match.group(1).strip()
+
+    lower_text = text.lower()
+    category_markers = {
+        "Food": ["banana", "bananas", "avocado", "avocados", "food", "agricultural"],
+        "Nuclear": ["uranium", "isotope", "nuclear", "radioactive"],
+        "Pharmaceutical": ["amoxicillin", "pharmaceutical", "api", "drug"],
+        "Electronics": ["battery", "batteries", "lithium", "electronics", "electronic"],
+    }
+    for category_name, markers in category_markers.items():
+        if any(marker in lower_text for marker in markers):
+            parsed["category"] = category_name
+            break
+
+    return parsed
 
 def _normalize_laws(raw_laws: Any, available_laws: List[Dict[str, Any]]) -> List[str]:
     if not raw_laws: return []
     raw_laws = raw_laws if isinstance(raw_laws, list) else [raw_laws]
     id_to_name = {str(l.get("id")).strip(): str(l.get("name")).strip() for l in available_laws if l.get("id") and l.get("name")}
+    name_to_name = {str(l.get("name")).strip().lower(): str(l.get("name")).strip() for l in available_laws if l.get("name")}
     selected = []
+
+    def _resolve_law_value(value: Any) -> str:
+        val = str(value or "").strip()
+        if not val:
+            return ""
+        if val in id_to_name:
+            return id_to_name[val]
+        match = re.search(r"\bLAW_\d+\b", val, flags=re.IGNORECASE)
+        if match:
+            law_id = match.group(0).upper()
+            if law_id in id_to_name:
+                return id_to_name[law_id]
+        lower_val = val.lower()
+        if lower_val in name_to_name:
+            return name_to_name[lower_val]
+        if len(lower_val) > 6:
+            for name_lower, canonical in name_to_name.items():
+                if lower_val in name_lower or name_lower in lower_val:
+                    return canonical
+        return ""
+
     for item in raw_laws:
-        val = str(item.get("id", item) if isinstance(item, dict) else item).strip()
-        if val in id_to_name: selected.append(id_to_name[val])
+        if isinstance(item, dict):
+            resolved = (
+                _resolve_law_value(item.get("id"))
+                or _resolve_law_value(item.get("name"))
+                or _resolve_law_value(item.get("law"))
+                or _resolve_law_value(item.get("title"))
+            )
         else:
-            match = re.search(r"\bLAW_\d+\b", val)
-            if match and match.group(0) in id_to_name: selected.append(id_to_name[match.group(0)])
+            resolved = _resolve_law_value(item)
+        if resolved:
+            selected.append(resolved)
     return list(dict.fromkeys(selected))
+
+def _available_law_names(available_laws: List[Dict[str, Any]]) -> List[str]:
+    names = []
+    for law in available_laws or []:
+        if isinstance(law, dict):
+            law_name = _normalize_scalar(law.get("name"))
+            if law_name:
+                names.append(law_name)
+    return list(dict.fromkeys(names))
 
 def get_llm_response(client: OpenAI, sys_prompt: str, user_prompt: str, max_tokens: int = 500) -> str:
     try:
@@ -223,8 +343,13 @@ async def main() -> None:
         log_end(success=False, steps=0, score=0.0, rewards=[])
         return
 
+    if not API_BASE_URL:
+        log_step(step=1, action="fail", reward=0.0, done=True, error="Missing API_BASE_URL")
+        log_end(success=False, steps=0, score=0.0, rewards=[])
+        return
+
     if not API_KEY:
-        log_step(step=1, action="fail", reward=0.0, done=True, error="Missing HF_TOKEN/API_KEY")
+        log_step(step=1, action="fail", reward=0.0, done=True, error="Missing API_KEY")
         log_end(success=False, steps=0, score=0.0, rewards=[])
         return
 
@@ -232,13 +357,14 @@ async def main() -> None:
     env = CargoEnvClient(base_url=WORLD_ENV_URL)
 
     try:
-        session_id, obs = env.create_task()
+        session_id, obs = env.create_task(task_id=REQUESTED_TASK_ID)
         extraction_data: Dict[str, Any] = {}
 
         # --- PHASE 1: EXTRACTION ---
         raw_manifest = str(obs.manifest.get("raw_text", "")) if isinstance(obs.manifest, dict) else ""
         steps_taken += 1
         extraction_reply = get_llm_response(llm_client, 'Return JSON with keys: "qty", "category", "Destination", "Origin".', f"Extract:\n{raw_manifest}\nJSON only.")
+        extraction_data = _merge_extraction(extraction_data, _extract_manifest_fields(raw_manifest))
         extraction_data = _ensure_extraction_shape(_merge_extraction(extraction_data, _extract_json(extraction_reply)))
         
         obs = await env.step(session_id, Cargo_Action(action_type=Cargo_FetchState.SUBMIT_EXTRACT, decision=json.dumps(extraction_data)))
@@ -249,18 +375,65 @@ async def main() -> None:
         questions_used, extract_retries = 0, 0
         while not obs.available_laws and extract_retries < 4:
             extract_retries += 1
-            decision = _extract_json(get_llm_response(llm_client, 'Output ONLY JSON: {"action":"ask"|"submit","question":"...","extraction":{...}}', f"Current: {json.dumps(extraction_data)}\nFeedback: {obs.text}"))
-            
-            if _normalize_scalar(decision.get("action")).lower() == "ask" and questions_used < 3:
-                question = _normalize_scalar(decision.get("question")) or "Confirm origin, destination, qty, and category?"
+            previous_extraction = dict(extraction_data)
+            mismatch_fields = _mismatches_from_feedback(obs.text or "")
+
+            # If server tells us exactly what mismatched, force a targeted question.
+            if mismatch_fields and questions_used < 3:
+                question_map = {
+                    "qty": "What is the exact qty?",
+                    "category": "What is the category?",
+                    "Destination": "What is the destination?",
+                    "Origin": "What is the origin?",
+                }
+                target_field = mismatch_fields[0]
+                question = question_map.get(target_field, "Confirm origin, destination, qty, and category?")
                 steps_taken += 1
                 obs = await env.step(session_id, Cargo_Action(action_type=Cargo_FetchState.FETCH_INFO, decision=question))
                 rewards.append(_to_float(obs.reward))
                 log_step(step=steps_taken, action="ask", reward=rewards[-1], done=False, error=None)
                 questions_used += 1
-                extraction_data = _merge_extraction(extraction_data, _extract_json(get_llm_response(llm_client, 'Output JSON keys: "qty", "category", "Destination", "Origin".', f"Reply:\n{obs.text}")))
+                extraction_data = _merge_extraction(extraction_data, _extract_customer_reply_fields(obs.text or ""))
             else:
-                extraction_data = _merge_extraction(extraction_data, decision.get("extraction", {}))
+                decision = _extract_json(get_llm_response(
+                    llm_client,
+                    'Output ONLY JSON: {"action":"ask"|"submit","question":"...","extraction":{...}}. '
+                    'If feedback says mismatch, prefer "action":"ask".',
+                    f"Current: {json.dumps(extraction_data)}\nFeedback: {obs.text}"
+                ))
+                
+                if _normalize_scalar(decision.get("action")).lower() == "ask" and questions_used < 3:
+                    question = _normalize_scalar(decision.get("question")) or "Confirm origin, destination, qty, and category?"
+                    steps_taken += 1
+                    obs = await env.step(session_id, Cargo_Action(action_type=Cargo_FetchState.FETCH_INFO, decision=question))
+                    rewards.append(_to_float(obs.reward))
+                    log_step(step=steps_taken, action="ask", reward=rewards[-1], done=False, error=None)
+                    questions_used += 1
+                    parsed_reply = _extract_customer_reply_fields(obs.text or "")
+                    if not parsed_reply:
+                        parsed_reply = _extract_json(get_llm_response(
+                            llm_client,
+                            'Output JSON keys: "qty", "category", "Destination", "Origin".',
+                            f"Reply:\n{obs.text}"
+                        ))
+                    extraction_data = _merge_extraction(extraction_data, parsed_reply)
+                else:
+                    extraction_data = _merge_extraction(extraction_data, decision.get("extraction", {}))
+
+                # If nothing changed and we can still ask, force a broad recovery question.
+                if extraction_data == previous_extraction and questions_used < 3:
+                    steps_taken += 1
+                    obs = await env.step(
+                        session_id,
+                        Cargo_Action(
+                            action_type=Cargo_FetchState.FETCH_INFO,
+                            decision="Confirm origin, destination, qty, and category?"
+                        ),
+                    )
+                    rewards.append(_to_float(obs.reward))
+                    log_step(step=steps_taken, action="ask", reward=rewards[-1], done=False, error=None)
+                    questions_used += 1
+                    extraction_data = _merge_extraction(extraction_data, _extract_customer_reply_fields(obs.text or ""))
 
             extraction_data = _ensure_extraction_shape(extraction_data)
             steps_taken += 1
@@ -272,8 +445,38 @@ async def main() -> None:
         # --- PHASE 2: LAW SELECTION ---
         if obs.available_laws:
             steps_taken += 1
-            law_pkg = _extract_json(get_llm_response(llm_client, "Output ONLY JSON keys: laws (array), regulator (string), documents (array).", f"Extraction: {json.dumps(obs.current_extraction)}\nOptions: {json.dumps(obs.available_laws)}"))
-            package = {"laws": _normalize_laws(law_pkg.get("laws"), obs.available_laws), "regulator": _normalize_scalar(law_pkg.get("regulator")), "documents": _normalize_documents(law_pkg.get("documents"))}
+            current_category = _normalize_scalar((obs.current_extraction or {}).get("category")).lower()
+            candidate_laws = obs.available_laws
+            if current_category:
+                category_filtered = [
+                    law for law in obs.available_laws
+                    if _normalize_scalar(law.get("category")).lower() == current_category
+                ]
+                if category_filtered:
+                    candidate_laws = category_filtered
+
+            law_pkg = _extract_json(get_llm_response(
+                llm_client,
+                "Output ONLY JSON keys: laws (array), regulator (string), documents (array). "
+                "Use laws directly from the provided options by id or exact name.",
+                f"Extraction: {json.dumps(obs.current_extraction)}\nOptions: {json.dumps(candidate_laws)}"
+            ))
+            selected_laws = _normalize_laws(law_pkg.get("laws"), candidate_laws)
+            if not selected_laws:
+                # Fallback to exact names from available options if LLM output is unparseable.
+                selected_laws = _available_law_names(candidate_laws)
+            package = {
+                "laws": selected_laws,
+                "regulator": _normalize_scalar(law_pkg.get("regulator")),
+                "documents": _normalize_documents(law_pkg.get("documents")),
+            }
+            if DEBUG_RUN:
+                print(
+                    f"[DEBUG] category={current_category or 'unknown'} "
+                    f"laws_selected={len(package['laws'])} laws_available={len(obs.available_laws)} "
+                    f"candidate_laws={len(candidate_laws)}",
+                    flush=True,
+                )
             
             obs = await env.step(session_id, Cargo_Action(action_type=Cargo_FetchState.PICK_LAW, decision=json.dumps(package)))
             rewards.append(_to_float(obs.reward))
