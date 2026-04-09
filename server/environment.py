@@ -265,8 +265,9 @@ class CargoComplianceEnv(Environment):
             + 0.15 * regulator_score
             + 0.15 * document_score
         )
-        # Validators require strictly-exclusive task scores: never exactly 0.0 or 1.0.
-        return round(max(0.001, min(0.999, final_score)), 3)
+        # Keep scores strictly inside (0, 1) while matching the benchmark's
+        # two-decimal output convention.
+        return round(max(0.01, min(0.99, final_score)), 2)
 
     def create_task(self, task_id: Optional[str] = None) -> Tuple[str, Cargo_Observation]:
         session_id = str(uuid.uuid4())
@@ -608,7 +609,7 @@ async def get_tasks() -> List[Dict[str, Any]]:
             "grader": "deterministic_programmatic",
             "grader_type": "programmatic",
             "has_grader": True,
-            "score_range": [0.001, 0.999],
+            "score_range": [0.01, 0.99],
             "pass_score": spec["pass_score"],
         }
         for task_id, spec in TASK_SPECS.items()

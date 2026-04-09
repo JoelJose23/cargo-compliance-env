@@ -116,7 +116,7 @@ TASKS = [
         "grader": "deterministic_programmatic",
         "grader_type": "programmatic",
         "has_grader": True,
-        "score_range": [0.001, 0.999],
+        "score_range": [0.01, 0.99],
         "pass_score": 0.70,
     },
     {
@@ -127,7 +127,7 @@ TASKS = [
         "grader": "deterministic_programmatic",
         "grader_type": "programmatic",
         "has_grader": True,
-        "score_range": [0.001, 0.999],
+        "score_range": [0.01, 0.99],
         "pass_score": 0.78,
     },
     {
@@ -138,7 +138,7 @@ TASKS = [
         "grader": "deterministic_programmatic",
         "grader_type": "programmatic",
         "has_grader": True,
-        "score_range": [0.001, 0.999],
+        "score_range": [0.01, 0.99],
         "pass_score": 0.85,
     },
 ]
@@ -216,7 +216,7 @@ def log_step(step: int, action: str, reward: float, done: bool, error: Optional[
         f"reward={reward:.2f} done={str(done).lower()} error={error_json}",
         flush=True,
     )
-def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> None: print(f"[END] success={str(success).lower()} steps={steps} score={score:.3f} rewards={','.join(f'{r:.2f}' for r in rewards)}", flush=True)
+def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> None: print(f"[END] success={str(success).lower()} steps={steps} score={score:.2f} rewards={','.join(f'{r:.2f}' for r in rewards)}", flush=True)
 def _to_float(value: Any, default: float = 0.0) -> float:
     try: return float(value)
     except: return default
@@ -543,10 +543,10 @@ async def main() -> None:
 
         grader_score = getattr(obs, "grader_score", None)
         if grader_score is not None:
-            score = min(max(float(grader_score), 0.001), 0.999)
+            score = min(max(float(grader_score), 0.01), 0.99)
         else:
             raw_score = sum(rewards) / MAX_TOTAL_REWARD if MAX_TOTAL_REWARD > 0 else 0.0
-            score = min(max(raw_score, 0.001), 0.999)
+            score = min(max(raw_score, 0.01), 0.99)
         pass_score = TASK_PASS_SCORES.get(REQUESTED_TASK_ID, SUCCESS_SCORE_THRESHOLD)
         success = score >= pass_score
 
