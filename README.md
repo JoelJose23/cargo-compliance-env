@@ -1,8 +1,3 @@
-Got it—dropping all the "DeAI" and decentralization branding to keep it strictly focused on the cargo compliance engine you've actually built. I've also updated the metadata to match your new repository name and included the task-specific details that judges will need to see.
-
-Here is your updated **README.md**:
-
----
 title: Cargo-Compliance-Challenge
 sdk: docker
 license: apache-2.0
@@ -26,13 +21,13 @@ This project implements a robust **3-Phase Reinforcement Learning Loop** with de
     * *Penalty:* -0.1 per question to encourage efficiency.
 2.  **Bilateral Selection:** The agent must filter a pool of available laws to find matches for both the Import and Export sides of the transaction.
     * *Scoring:* Higher rewards for matching specific industry categories (Food, Electronics, Pharma).
-3.  **Final Audit:** A "Judge LLM" (Llama-3.3-70B) performs a final check on the agent's reasoning to ensure legal justifications align with the ground truth.
+3.  **Final Audit:** A deterministic programmatic grader computes a final 0.0-1.0 score from extraction accuracy, required laws, regulator selection, and document coverage.
 
 ## 🛠️ Task IDs (Multi-Grader System)
-The environment supports three distinct industry-specific tasks, each with its own set of distractor laws and regulatory requirements:
-* `cargo_food`: Focused on agricultural standards and phytosanitary checks.
-* `cargo_electronics`: Focused on dual-use goods and export control licenses.
-* `cargo_pharma`: Focused on controlled substances and API documentation.
+The environment exposes three validator-facing tasks with deterministic pass/fail criteria:
+* `cargo_food` (`easy`): Pass at `grader_score >= 0.70`.
+* `cargo_electronics` (`medium`): Pass at `grader_score >= 0.78`.
+* `cargo_pharma` (`hard`): Pass at `grader_score >= 0.85`.
 
 ## 📂 Runtime Components
 
@@ -55,13 +50,13 @@ python -m server.environment
 
 **3. Run the Agent (Targeting a specific industry):**
 ```bash
-TASK_ID=cargo_electronics python i.py
+CARGO_TASK_ID=cargo_electronics python i.py
 ```
 
 ## 📊 Scoring & Metrics
 
-* **Max Total Reward:** `~5.5` (Calculated across extraction accuracy, law matching, and judge audit).
-* **Success Threshold:** `0.44` (Requires clearing all phases with minimal hallucinations).
+* **Final Grader Score:** Deterministic `0.0-1.0` score returned by the environment.
+* **Task Thresholds:** `0.70` for Food, `0.78` for Electronics, `0.85` for Pharma.
 * **Safety:** Implements a "Death Loop" breaker that penalizes repetitive failed extractions, forcing the agent to utilize the `ask` tool.
 
 ## 📄 Documentation

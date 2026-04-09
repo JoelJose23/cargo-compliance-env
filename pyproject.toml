@@ -24,7 +24,7 @@ dependencies = [
 
 [project.scripts]
 # Entry point to launch the FastAPI environment server
-cargo-env = "server.environment:main"
+cargo-env = "server.main:run"
 # Entry point to launch the agent runner
 cargo-agent = "i:main"
 

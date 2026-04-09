@@ -12,6 +12,8 @@ class Cargo_Observation(Observation):
     text: str
     current_extraction: Optional[Dict[str, Any]] = None 
     available_laws: List[Dict[str, str]] = []
+    available_documents: List[str] = []
+    available_regulators: List[str] = []
     manifest: Dict[str, Any]
     laws: List[str]
     documents: List[str] = [] # To track selected paperwork
@@ -21,6 +23,7 @@ class Cargo_Observation(Observation):
     step: int
     reward: float = 0.0
     total_reward: float = 0.0
+    grader_score: Optional[float] = None
 
 class Cargo_State(State):
     task_id: str

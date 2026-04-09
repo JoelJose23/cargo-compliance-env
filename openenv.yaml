@@ -12,13 +12,25 @@ memory_limit: "4Gi"
 # This satisfies the "3 tasks with graders" error by explicitly listing them.
 tasks:
   - id: "cargo_food"
-    description: "Evaluate compliance for agricultural and food shipments."
+    description: "Easy: complete bilateral compliance screening for a food shipment."
+    objective: "Extract qty/category/origin/destination and select the exact food laws, regulator, and documents."
+    difficulty: "easy"
+    grader: "deterministic_programmatic"
+    pass_score: 0.70
     weight: 1.0
   - id: "cargo_electronics"
-    description: "Evaluate export controls for dual-use electronic goods."
+    description: "Medium: resolve export-control obligations for a dual-use electronics shipment."
+    objective: "Identify the correct route and choose the matching electronics compliance package without extra laws."
+    difficulty: "medium"
+    grader: "deterministic_programmatic"
+    pass_score: 0.78
     weight: 1.0
   - id: "cargo_pharma"
-    description: "Evaluate regulatory compliance for pharmaceutical APIs."
+    description: "Hard: validate pharmaceutical API compliance across both jurisdictions."
+    objective: "Handle sparse pharma manifests and select the exact required laws, regulator, and paperwork."
+    difficulty: "hard"
+    grader: "deterministic_programmatic"
+    pass_score: 0.85
     weight: 1.0
 
 # 3. Environment Configuration
@@ -26,9 +38,13 @@ env_vars:
   API_BASE_URL: "${API_BASE_URL}"
   MODEL_NAME: "Qwen/Qwen2.5-72B-Instruct"
   WORLD_ENV_URL: "https://SSETHackathonTeam-cargo-compliance-env.hf.space"
-  # The validator will inject the task ID into one of these based on its config
-  # We use a generic one that i.py can grab:
-  CURRENT_TASK_ID: "${TASK_ID}" 
+  # Mirror the validator task id into every variable the runner understands.
+  TASK_ID: "${TASK_ID}"
+  CURRENT_TASK_ID: "${TASK_ID}"
+  MY_ENV_V4_TASK: "${TASK_ID}"
+  CARGO_TASK_ID: "${TASK_ID}"
+  RESET_TASK_ID: "${TASK_ID}"
+  SUCCESS_SCORE_THRESHOLD: "0.70"
   API_KEY: "${API_KEY}"
 
 # 4. Build Requirements

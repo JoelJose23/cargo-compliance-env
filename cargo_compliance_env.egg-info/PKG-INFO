@@ -18,41 +18,66 @@ Requires-Dist: pydantic
 
 ---
 title: Cargo-DeAI-Dispatcher
-emoji: 🚢
-colorFrom: blue
-colorTo: green
 sdk: docker
-sdk_version: 24.0.5
-app_file: app.py
-pinned: false
 license: apache-2.0
 ---
 
-# 📦 Cargo Compliance AI Agent (DeAI Dispatcher)
+# Cargo Compliance Environment
 
-A robust, multi-stage reinforcement learning environment for verifying international trade compliance. This project uses high-parameter LLMs to navigate complex bilateral trade laws between regions like the **EU, US, India, Australia, and Canada**.
+This repository contains a benchmark-style environment and agent runner for cargo compliance checks across bilateral import/export rules.
 
-## 🚀 The Core Innovation: "The Confidence Trap" Guardrail
-Large Language Models are often "confidently wrong." They use professional legal jargon to hide hallucinations. This project implements a **Hard Guardrail System**:
+## What Judges Should Know
 
-1.  **Phase 1 (Extraction):** Standardizes raw manifest text into a strict schema.
-2.  **Phase 2 (Verified Selection):** Matches agent choices against a **ground-truth SQL/JSON registry**. The agent is penalized for using "external knowledge" not found in the verified dataset.
-3.  **Phase 3 (Audit):** A high-tier LLM Judge (Llama-3.3-70B) evaluates the reasoning, but only after the mechanical checks in Phase 2 have passed.
+The project is organized around a 3-phase loop:
 
-## 🛠️ Technical Stack
-* **Environment:** Custom `OpenEnv` server implementation.
-* **Models Tested:** `Mistral-7B-v0.3`, `Qwen-2.5-72B`, `Kimi-K2-Instruct`.
-* **Infrastructure:** Python 3.10+ with `asyncio` and `Groq/HuggingFace` Inference APIs.
-* **Hardware Target:** Lenovo Legion 5 Pro (Optimized for local inference via Ollama or remote API).
+1. Extraction: Parse shipment text into `qty`, `category`, `Destination`, `Origin`.
+2. Selection: Choose laws, regulators, and documents from environment-provided options.
+3. Verdict: Submit short legal reasoning scored by an LLM judge.
 
-## 📊 Benchmark Performance
-| Metric | Local Mistral | HF Kimi-K2 |
-| :--- | :--- | :--- |
-| **Extraction Accuracy** | 98% | 100% |
-| **Bilateral Law Match** | 85% | 92% |
-| **Avg. Reward Score** | 3.2 | 4.17 |
+The environment applies dense rewards for partial correctness and penalties for unnecessary questions or hallucinated selections.
 
-## 🏃 How to Run
-1. **Clone the Space:**
-   ```bash
-   git clone [https://huggingface.co/spaces/your-username/cargo-compliance](https://huggingface.co/spaces/your-username/cargo-compliance)
+## Runtime Components
+
+- Agent entrypoint: `i.py`
+- Environment API: `server/environment.py` + FastAPI routes
+- Dataset source: `data/final_dataset.json`
+- Benchmark wrapper config: `openenv.yaml`
+
+## Quick Run
+
+Install dependencies and run local server:
+
+```bash
+pip install -r requirements.txt
+python -m server.main
+```
+
+Run the agent:
+
+```bash
+python i.py
+```
+
+## Configuration
+
+Primary environment variables used by `i.py`:
+
+- `HF_TOKEN` or `API_KEY` for model access
+- `API_BASE_URL` (default Hugging Face Inference API)
+- `MODEL_NAME` (default `Qwen/Qwen2.5-72B-Instruct`)
+- `WORLD_ENV_URL` (environment service URL)
+- `MY_ENV_V4_TASK`
+- `MY_ENV_V4_BENCHMARK`
+
+## Scoring Notes
+
+- `i.py` normalizes score by `MAX_TOTAL_REWARD` (default `5.5`).
+- Success threshold defaults to `0.44`.
+- Environment phase rewards are implemented in `server/environment.py`.
+
+## File-Level Documentation
+
+For a full file-by-file guide used by judges:
+
+- `FILE_INDEX.md` (entire repository map)
+- `server/README.md` (server internals and API contract)
