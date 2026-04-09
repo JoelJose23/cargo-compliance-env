@@ -23,15 +23,19 @@ dependencies = [
 ]
 
 [project.scripts]
-# Entry point to launch the FastAPI environment server
-cargo-env = "server.main:run"
-# Entry point to launch the agent runner
-cargo-agent = "i:main"
+# Validator-friendly multi-mode entry points
+server = "server.main:main"
+agent = "inference:run"
+inference = "inference:run"
+# Backward-compatible aliases
+cargo-env = "server.main:main"
+cargo-agent = "inference:run"
+i-agent = "i:run"
 
 [tool.setuptools]
 # Ensures both the server logic and your agent script are discoverable
 packages = ["server"]
-py-modules = ["i"]
+py-modules = ["inference", "i"]
 
 [tool.setuptools.package-data]
 # Includes the final_dataset.json and openenv.yaml in the distribution

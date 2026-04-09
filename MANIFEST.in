@@ -1,0 +1,7 @@
+include README.md
+include openenv.yaml
+include requirements.txt
+include inference.py
+include i.py
+recursive-include data *.json
+recursive-include server *.py

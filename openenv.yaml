@@ -3,8 +3,8 @@ name: "cargo-compliance-challenge"
 benchmark: "CargoComplianceEnv"
 
 # 1. Execution Settings
-# Note: Ensure i.py reads the TASK_ID env var to pass to the /reset call
-entrypoint: "python3 i.py"
+# Note: Judges require a root-level inference.py entrypoint.
+entrypoint: "python3 inference.py"
 timeout: 300 
 memory_limit: "4Gi"
 
@@ -16,6 +16,7 @@ tasks:
     objective: "Extract qty/category/origin/destination and select the exact food laws, regulator, and documents."
     difficulty: "easy"
     grader: "deterministic_programmatic"
+    score_range: [0.001, 0.999]
     pass_score: 0.70
     weight: 1.0
   - id: "cargo_electronics"
@@ -23,6 +24,7 @@ tasks:
     objective: "Identify the correct route and choose the matching electronics compliance package without extra laws."
     difficulty: "medium"
     grader: "deterministic_programmatic"
+    score_range: [0.001, 0.999]
     pass_score: 0.78
     weight: 1.0
   - id: "cargo_pharma"
@@ -30,14 +32,18 @@ tasks:
     objective: "Handle sparse pharma manifests and select the exact required laws, regulator, and paperwork."
     difficulty: "hard"
     grader: "deterministic_programmatic"
+    score_range: [0.001, 0.999]
     pass_score: 0.85
     weight: 1.0
 
 # 3. Environment Configuration
 env_vars:
   API_BASE_URL: "${API_BASE_URL}"
-  MODEL_NAME: "Qwen/Qwen2.5-72B-Instruct"
-  WORLD_ENV_URL: "https://SSETHackathonTeam-cargo-compliance-env.hf.space"
+  MODEL_NAME: "${MODEL_NAME}"
+  HF_TOKEN: "${HF_TOKEN}"
+  API_KEY: "${API_KEY}"
+  LOCAL_IMAGE_NAME: "${LOCAL_IMAGE_NAME}"
+  WORLD_ENV_URL: "${WORLD_ENV_URL}"
   # Mirror the validator task id into every variable the runner understands.
   TASK_ID: "${TASK_ID}"
   CURRENT_TASK_ID: "${TASK_ID}"
@@ -45,7 +51,7 @@ env_vars:
   CARGO_TASK_ID: "${TASK_ID}"
   RESET_TASK_ID: "${TASK_ID}"
   SUCCESS_SCORE_THRESHOLD: "0.70"
-  API_KEY: "${API_KEY}"
+  MY_ENV_V4_BENCHMARK: "CargoComplianceEnv"
 
 # 4. Build Requirements
 build:

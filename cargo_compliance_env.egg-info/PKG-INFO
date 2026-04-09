@@ -32,13 +32,13 @@ The project is organized around a 3-phase loop:
 
 1. Extraction: Parse shipment text into `qty`, `category`, `Destination`, `Origin`.
 2. Selection: Choose laws, regulators, and documents from environment-provided options.
-3. Verdict: Submit short legal reasoning scored by an LLM judge.
+3. Verdict: Submit final reasoning for a deterministic programmatic grader.
 
 The environment applies dense rewards for partial correctness and penalties for unnecessary questions or hallucinated selections.
 
 ## Runtime Components
 
-- Agent entrypoint: `i.py`
+- Agent entrypoint: `inference.py`
 - Environment API: `server/environment.py` + FastAPI routes
 - Dataset source: `data/final_dataset.json`
 - Benchmark wrapper config: `openenv.yaml`
@@ -55,7 +55,7 @@ python -m server.main
 Run the agent:
 
 ```bash
-python i.py
+python inference.py
 ```
 
 ## Configuration

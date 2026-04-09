@@ -21,7 +21,7 @@ This project implements a robust **3-Phase Reinforcement Learning Loop** with de
     * *Penalty:* -0.1 per question to encourage efficiency.
 2.  **Bilateral Selection:** The agent must filter a pool of available laws to find matches for both the Import and Export sides of the transaction.
     * *Scoring:* Higher rewards for matching specific industry categories (Food, Electronics, Pharma).
-3.  **Final Audit:** A deterministic programmatic grader computes a final 0.0-1.0 score from extraction accuracy, required laws, regulator selection, and document coverage.
+3.  **Final Audit:** A deterministic programmatic grader computes a final 0.001-0.999 score from extraction accuracy, required laws, regulator selection, and document coverage.
 
 ## 🛠️ Task IDs (Multi-Grader System)
 The environment exposes three validator-facing tasks with deterministic pass/fail criteria:
@@ -31,7 +31,7 @@ The environment exposes three validator-facing tasks with deterministic pass/fai
 
 ## 📂 Runtime Components
 
-- **Agent Entrypoint:** `i.py` (Handles the logic loop and state management)
+- **Agent Entrypoint:** `inference.py` (Handles the judge-facing logic loop and state management)
 - **Environment API:** `server/environment.py` (FastAPI server implementing the Gym-like interface)
 - **Core Config:** `openenv.yaml` (Defines the 3 tasks and resource limits for the validator)
 - **Data Source:** `data/final_dataset.json` (The ground truth registry for laws and regulators)
@@ -50,12 +50,12 @@ python -m server.environment
 
 **3. Run the Agent (Targeting a specific industry):**
 ```bash
-CARGO_TASK_ID=cargo_electronics python i.py
+CARGO_TASK_ID=cargo_electronics python inference.py
 ```
 
 ## 📊 Scoring & Metrics
 
-* **Final Grader Score:** Deterministic `0.0-1.0` score returned by the environment.
+* **Final Grader Score:** Deterministic `0.001-0.999` score returned by the environment.
 * **Task Thresholds:** `0.70` for Food, `0.78` for Electronics, `0.85` for Pharma.
 * **Safety:** Implements a "Death Loop" breaker that penalizes repetitive failed extractions, forcing the agent to utilize the `ask` tool.
 

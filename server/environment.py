@@ -17,7 +17,7 @@ load_dotenv()
 class ResetRequest(BaseModel):
     task_id: Optional[str] = None
 
-app = FastAPI(title="Cargo Compliance Production API")
+app = FastAPI(title="Cargo Compliance Production API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -265,7 +265,8 @@ class CargoComplianceEnv(Environment):
             + 0.15 * regulator_score
             + 0.15 * document_score
         )
-        return round(max(0.0, min(1.0, final_score)), 3)
+        # Validators require strictly-exclusive task scores: never exactly 0.0 or 1.0.
+        return round(max(0.001, min(0.999, final_score)), 3)
 
     def create_task(self, task_id: Optional[str] = None) -> Tuple[str, Cargo_Observation]:
         session_id = str(uuid.uuid4())
@@ -604,7 +605,7 @@ async def get_tasks() -> Dict[str, Any]:
                 "objective": spec["objective"],
                 "difficulty": spec["difficulty"],
                 "grader": "deterministic_programmatic",
-                "score_range": [0.0, 1.0],
+                "score_range": [0.001, 0.999],
                 "pass_score": spec["pass_score"],
             }
             for task_id, spec in TASK_SPECS.items()
@@ -612,6 +613,21 @@ async def get_tasks() -> Dict[str, Any]:
         "action_schema": Cargo_Action.model_json_schema(),
     }
 
+@app.get("/metadata")
+async def metadata() -> Dict[str, str]:
+    return {
+        "name": "cargo-compliance-challenge",
+        "description": "Deterministic bilateral cargo-compliance benchmark with three graded tasks.",
+    }
+
+@app.get("/schema")
+async def schema() -> Dict[str, Any]:
+    return {
+        "action": Cargo_Action.model_json_schema(),
+        "observation": Cargo_Observation.model_json_schema(),
+        "state": Cargo_State.model_json_schema(),
+    }
+
 @app.get("/health")
 async def health() -> Dict[str, str]:
-    return {"status": "online", "engine": "CargoComplianceEnv v1.0"}
+    return {"status": "healthy", "engine": "CargoComplianceEnv v1.0"}
