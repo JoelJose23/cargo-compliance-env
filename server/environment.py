@@ -596,22 +596,23 @@ async def step(action: Cargo_Action, session_id: str = None) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=str(exc))
 
 @app.get("/tasks")
-async def get_tasks() -> Dict[str, Any]:
-    return {
-        "tasks": [
-            {
-                "id": task_id,
-                "description": spec["description"],
-                "objective": spec["objective"],
-                "difficulty": spec["difficulty"],
-                "grader": "deterministic_programmatic",
-                "score_range": [0.001, 0.999],
-                "pass_score": spec["pass_score"],
-            }
-            for task_id, spec in TASK_SPECS.items()
-        ],
-        "action_schema": Cargo_Action.model_json_schema(),
-    }
+async def get_tasks() -> List[Dict[str, Any]]:
+    return [
+        {
+            "id": task_id,
+            "task_id": task_id,
+            "name": task_id,
+            "description": spec["description"],
+            "objective": spec["objective"],
+            "difficulty": spec["difficulty"],
+            "grader": "deterministic_programmatic",
+            "grader_type": "programmatic",
+            "has_grader": True,
+            "score_range": [0.001, 0.999],
+            "pass_score": spec["pass_score"],
+        }
+        for task_id, spec in TASK_SPECS.items()
+    ]
 
 @app.get("/metadata")
 async def metadata() -> Dict[str, str]:

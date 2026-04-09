@@ -1,6 +1,11 @@
 version: "1.0"
+spec_version: 1
 name: "cargo-compliance-challenge"
 benchmark: "CargoComplianceEnv"
+type: "space"
+runtime: "fastapi"
+app: "server.app:app"
+port: 7860
 
 # 1. Execution Settings
 # Note: Judges require a root-level inference.py entrypoint.
@@ -12,26 +17,38 @@ memory_limit: "4Gi"
 # This satisfies the "3 tasks with graders" error by explicitly listing them.
 tasks:
   - id: "cargo_food"
+    task_id: "cargo_food"
+    name: "cargo_food"
     description: "Easy: complete bilateral compliance screening for a food shipment."
     objective: "Extract qty/category/origin/destination and select the exact food laws, regulator, and documents."
     difficulty: "easy"
     grader: "deterministic_programmatic"
+    grader_type: "programmatic"
+    has_grader: true
     score_range: [0.001, 0.999]
     pass_score: 0.70
     weight: 1.0
   - id: "cargo_electronics"
+    task_id: "cargo_electronics"
+    name: "cargo_electronics"
     description: "Medium: resolve export-control obligations for a dual-use electronics shipment."
     objective: "Identify the correct route and choose the matching electronics compliance package without extra laws."
     difficulty: "medium"
     grader: "deterministic_programmatic"
+    grader_type: "programmatic"
+    has_grader: true
     score_range: [0.001, 0.999]
     pass_score: 0.78
     weight: 1.0
   - id: "cargo_pharma"
+    task_id: "cargo_pharma"
+    name: "cargo_pharma"
     description: "Hard: validate pharmaceutical API compliance across both jurisdictions."
     objective: "Handle sparse pharma manifests and select the exact required laws, regulator, and paperwork."
     difficulty: "hard"
     grader: "deterministic_programmatic"
+    grader_type: "programmatic"
+    has_grader: true
     score_range: [0.001, 0.999]
     pass_score: 0.85
     weight: 1.0
@@ -42,7 +59,6 @@ env_vars:
   MODEL_NAME: "${MODEL_NAME}"
   HF_TOKEN: "${HF_TOKEN}"
   API_KEY: "${API_KEY}"
-  LOCAL_IMAGE_NAME: "${LOCAL_IMAGE_NAME}"
   WORLD_ENV_URL: "${WORLD_ENV_URL}"
   # Mirror the validator task id into every variable the runner understands.
   TASK_ID: "${TASK_ID}"

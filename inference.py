@@ -107,11 +107,42 @@ REQUESTED_TASK_ID = (
     or (TASK_NAME if isinstance(TASK_NAME, str) and TASK_NAME.startswith("cargo_") else None)
 )
 DEBUG_RUN = os.getenv("DEBUG_RUN", "0").strip().lower() in {"1", "true", "yes"}
-TASK_PASS_SCORES = {
-    "cargo_food": 0.70,
-    "cargo_electronics": 0.78,
-    "cargo_pharma": 0.85,
-}
+TASKS = [
+    {
+        "id": "cargo_food",
+        "task_id": "cargo_food",
+        "difficulty": "easy",
+        "objective": "Extract qty/category/origin/destination and select the exact food laws, regulator, and documents.",
+        "grader": "deterministic_programmatic",
+        "grader_type": "programmatic",
+        "has_grader": True,
+        "score_range": [0.001, 0.999],
+        "pass_score": 0.70,
+    },
+    {
+        "id": "cargo_electronics",
+        "task_id": "cargo_electronics",
+        "difficulty": "medium",
+        "objective": "Identify the correct route and choose the matching electronics compliance package without extra laws.",
+        "grader": "deterministic_programmatic",
+        "grader_type": "programmatic",
+        "has_grader": True,
+        "score_range": [0.001, 0.999],
+        "pass_score": 0.78,
+    },
+    {
+        "id": "cargo_pharma",
+        "task_id": "cargo_pharma",
+        "difficulty": "hard",
+        "objective": "Handle sparse pharma manifests and select the exact required laws, regulator, and paperwork.",
+        "grader": "deterministic_programmatic",
+        "grader_type": "programmatic",
+        "has_grader": True,
+        "score_range": [0.001, 0.999],
+        "pass_score": 0.85,
+    },
+]
+TASK_PASS_SCORES = {task["id"]: task["pass_score"] for task in TASKS}
 
 
 # --- THE CRITICAL "WAIT FOR READY" BLOCK ---
