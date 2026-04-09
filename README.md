@@ -1,65 +1,71 @@
+Got it—dropping all the "DeAI" and decentralization branding to keep it strictly focused on the cargo compliance engine you've actually built. I've also updated the metadata to match your new repository name and included the task-specific details that judges will need to see.
+
+Here is your updated **README.md**:
+
 ---
-title: Cargo-DeAI-Dispatcher
+title: Cargo-Compliance-Challenge
 sdk: docker
 license: apache-2.0
 ---
 
 # Cargo Compliance Environment
 
-This repository contains a benchmark-style environment and agent runner for cargo compliance checks across bilateral import/export rules.
+This repository contains a specialized benchmark environment and agent runner designed to evaluate an AI's ability to navigate complex, bilateral international trade regulations.
 
-## What Judges Should Know
+## 🚢 Overview
 
-The project is organized around a 3-phase loop:
+The **Cargo Compliance Challenge** tasks an agent with acting as a digital customs broker. The agent must parse shipment requests, identify missing information, and select the correct regulatory framework for both the country of origin (export) and the country of destination (import).
 
-1. Extraction: Parse shipment text into `qty`, `category`, `Destination`, `Origin`.
-2. Selection: Choose laws, regulators, and documents from environment-provided options.
-3. Verdict: Submit short legal reasoning scored by an LLM judge.
 
-The environment applies dense rewards for partial correctness and penalties for unnecessary questions or hallucinated selections.
 
-## Runtime Components
+## 🎯 What Judges Should Know
 
-- Agent entrypoint: `i.py`
-- Environment API: `server/environment.py` + FastAPI routes
-- Dataset source: `data/final_dataset.json`
-- Benchmark wrapper config: `openenv.yaml`
+This project implements a robust **3-Phase Reinforcement Learning Loop** with dense reward signals:
 
-## Quick Run
+1.  **Extraction & Interaction:** The agent parses shipment text. If data is missing (e.g., origin country or quantity), the agent must use the `FETCH_INFO` tool to query the "Customer." 
+    * *Penalty:* -0.1 per question to encourage efficiency.
+2.  **Bilateral Selection:** The agent must filter a pool of available laws to find matches for both the Import and Export sides of the transaction.
+    * *Scoring:* Higher rewards for matching specific industry categories (Food, Electronics, Pharma).
+3.  **Final Audit:** A "Judge LLM" (Llama-3.3-70B) performs a final check on the agent's reasoning to ensure legal justifications align with the ground truth.
 
-Install dependencies and run local server:
+## 🛠️ Task IDs (Multi-Grader System)
+The environment supports three distinct industry-specific tasks, each with its own set of distractor laws and regulatory requirements:
+* `cargo_food`: Focused on agricultural standards and phytosanitary checks.
+* `cargo_electronics`: Focused on dual-use goods and export control licenses.
+* `cargo_pharma`: Focused on controlled substances and API documentation.
 
+## 📂 Runtime Components
+
+- **Agent Entrypoint:** `i.py` (Handles the logic loop and state management)
+- **Environment API:** `server/environment.py` (FastAPI server implementing the Gym-like interface)
+- **Core Config:** `openenv.yaml` (Defines the 3 tasks and resource limits for the validator)
+- **Data Source:** `data/final_dataset.json` (The ground truth registry for laws and regulators)
+
+## 🚀 Quick Start
+
+**1. Install Dependencies:**
 ```bash
 pip install -r requirements.txt
-python -m server.main
 ```
 
-Run the agent:
-
+**2. Start the Environment Server:**
 ```bash
-python i.py
+python -m server.environment
 ```
 
-## Configuration
+**3. Run the Agent (Targeting a specific industry):**
+```bash
+TASK_ID=cargo_electronics python i.py
+```
 
-Primary environment variables used by `i.py`:
+## 📊 Scoring & Metrics
 
-- `HF_TOKEN` or `API_KEY` for model access
-- `API_BASE_URL` (default Hugging Face Inference API)
-- `MODEL_NAME` (default `Qwen/Qwen2.5-72B-Instruct`)
-- `WORLD_ENV_URL` (environment service URL)
-- `MY_ENV_V4_TASK`
-- `MY_ENV_V4_BENCHMARK`
+* **Max Total Reward:** `~5.5` (Calculated across extraction accuracy, law matching, and judge audit).
+* **Success Threshold:** `0.44` (Requires clearing all phases with minimal hallucinations).
+* **Safety:** Implements a "Death Loop" breaker that penalizes repetitive failed extractions, forcing the agent to utilize the `ask` tool.
 
-## Scoring Notes
+## 📄 Documentation
 
-- `i.py` normalizes score by `MAX_TOTAL_REWARD` (default `5.5`).
-- Success threshold defaults to `0.44`.
-- Environment phase rewards are implemented in `server/environment.py`.
-
-## File-Level Documentation
-
-For a full file-by-file guide used by judges:
-
-- `FILE_INDEX.md` (entire repository map)
-- `server/README.md` (server internals and API contract)
+For deeper technical dives:
+- `openenv.yaml`: Task weighting and evaluation metrics.
+- `server/models.py`: Pydantic schemas for `Cargo_Action` and `Cargo_Observation`.
