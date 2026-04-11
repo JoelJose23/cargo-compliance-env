@@ -409,7 +409,7 @@ class CargoComplianceEnv(Environment):
                         step_reward -= 0.5 
                         
                         # THE FIX: Explicitly instruct the LLM to break the loop
-                        obs_text = f"Extraction Failed: Missing or incorrect data for {', '.join(mismatches)}. SYSTEM DIRECTIVE: Do not guess. You MUST use the 'FETCH_INFO' tool to ask the customer for this missing data."
+                        obs_text = f"Extraction Failed: Missing or incorrect data . SYSTEM DIRECTIVE: Do not guess. You MUST use the 'FETCH_INFO' tool to ask the customer for this missing data."
                         
                 except (json.JSONDecodeError, TypeError, ValueError):
                     step_reward = -1.0

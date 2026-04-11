@@ -1,7 +1,7 @@
 [console_scripts]
-server = server.main:main
 agent = inference:run
-inference = inference:run
-cargo-env = server.main:main
 cargo-agent = inference:run
+cargo-env = server.main:main
 i-agent = i:run
+inference = inference:run
+server = server.main:main

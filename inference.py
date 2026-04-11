@@ -374,7 +374,9 @@ def get_llm_response(client: OpenAI, sys_prompt: str, user_prompt: str, max_toke
             temperature=0, max_tokens=max_tokens,
         )
         return (completion.choices[0].message.content or "").strip()
-    except Exception: return ""
+    except Exception: 
+        print(f"[LLM ERROR] {e} Running Dummy run", flush=True)
+        return ""
 
 
 async def main() -> None:
@@ -406,8 +408,7 @@ async def main() -> None:
         # --- PHASE 1: EXTRACTION ---
         raw_manifest = str(obs.manifest.get("raw_text", "")) if isinstance(obs.manifest, dict) else ""
         steps_taken += 1
-        extraction_reply = get_llm_response(llm_client, 'Return JSON with keys: "qty", "category", "Destination", "Origin".', f"Extract:\n{raw_manifest}\nJSON only.")
-        print(f"[DEBUG] Initial extraction reply: {extraction_reply}", flush=True)
+        extraction_reply = get_llm_response(llm_client, 'Return JSON with keys: "qty", "category[choose from Food,Nuclear,Pharmaceutical and Electronics]", "Destination", "Origin".', f"Extract:\n{raw_manifest}\nJSON only.")
         extraction_data = _merge_extraction(extraction_data, _extract_manifest_fields(raw_manifest))
         extraction_data = _ensure_extraction_shape(_merge_extraction(extraction_data, _extract_json(extraction_reply)))
         
@@ -443,7 +444,7 @@ async def main() -> None:
                     llm_client,
                     'Output ONLY JSON: {"action":"ask"|"submit","question":"...","extraction":{...}}. '
                     'If feedback says mismatch, prefer "action":"ask".',
-                    f"Current: {json.dumps(extraction_data)}\nFeedback: {obs.text}"
+                    f"Current: {json.dumps(extraction_data)}\nFeedback: {obs.text}extraction"
                 ))
                 
                 if _normalize_scalar(decision.get("action")).lower() == "ask" and questions_used < 3:
@@ -508,15 +509,16 @@ async def main() -> None:
                 f"Extraction: {json.dumps(obs.current_extraction)}\nOptions: {json.dumps(candidate_laws)}"
             ))
             selected_laws = _normalize_laws(law_pkg.get("laws"), candidate_laws)
-            if not selected_laws:
+            print(f"[DEBUG] Laws selected by LLM: {selected_laws}", flush=True)
+            #if not selected_laws:
                 # Fallback to exact names from available options if LLM output is unparseable.
-                selected_laws = _available_law_names(candidate_laws)
+                #selected_laws = _available_law_names(candidate_laws)
             selected_regulator = _normalize_scalar(law_pkg.get("regulator"))
-            if candidate_regulators and not selected_regulator:
-                selected_regulator = " / ".join(candidate_regulators)
+            #if candidate_regulators and not selected_regulator:
+                #selected_regulator = " / ".join(candidate_regulators)
             selected_documents = _normalize_documents(law_pkg.get("documents"))
-            if candidate_documents:
-                selected_documents = list(dict.fromkeys(candidate_documents + selected_documents))
+            #if candidate_documents:
+                #selected_documents = list(dict.fromkeys(candidate_documents + selected_documents))
             package = {
                 "laws": selected_laws,
                 "regulator": selected_regulator,

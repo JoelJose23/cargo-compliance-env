@@ -1,8 +1,14 @@
-title: Cargo-Compliance-Challenge
-sdk: docker
-license: apache-2.0
 ---
-
+title: Cargo-Compliance-Challenge
+emoji: 📦
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 7860
+license: apache-2.0
+pinned: false
+short_description: A decentralized AI hub for autonomous logistics compliance.
+---
 # Cargo Compliance Environment
 
 This repository contains a specialized benchmark environment and agent runner designed to evaluate an AI's ability to navigate complex, bilateral international trade regulations.

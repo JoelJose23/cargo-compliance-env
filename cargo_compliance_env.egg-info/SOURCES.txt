@@ -1,7 +1,7 @@
-README.md
 MANIFEST.in
-inference.py
+README.md
 i.py
+inference.py
 openenv.yaml
 pyproject.toml
 requirements.txt
