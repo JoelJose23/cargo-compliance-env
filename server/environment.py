@@ -7,7 +7,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from openenv.core.env_server import Environment
-from .models import Cargo_Action, Cargo_Observation, Cargo_FetchState, Cargo_State
+from ..models import Cargo_Action, Cargo_Observation, Cargo_FetchState, Cargo_State
 import re
 from dotenv import load_dotenv
 

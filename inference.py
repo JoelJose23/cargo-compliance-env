@@ -20,10 +20,10 @@ load_dotenv(ROOT / ".env")
 
 # --- BULLETPROOF MODEL IMPORTS ---
 try:
-    from server.models import Cargo_Action, Cargo_FetchState, Cargo_Observation
+    from models import Cargo_Action, Cargo_FetchState, Cargo_Observation
 except ImportError:
     try:
-        from server.models import Cargo_Action, Cargo_FetchState, Cargo_Observation
+        from models import Cargo_Action, Cargo_FetchState, Cargo_Observation
     except ImportError:
         print("⚠️ Validator flattened directory. Using emergency internal models.")
         from enum import Enum
