@@ -407,6 +407,7 @@ async def main() -> None:
         raw_manifest = str(obs.manifest.get("raw_text", "")) if isinstance(obs.manifest, dict) else ""
         steps_taken += 1
         extraction_reply = get_llm_response(llm_client, 'Return JSON with keys: "qty", "category", "Destination", "Origin".', f"Extract:\n{raw_manifest}\nJSON only.")
+        print(f"[DEBUG] Initial extraction reply: {extraction_reply}", flush=True)
         extraction_data = _merge_extraction(extraction_data, _extract_manifest_fields(raw_manifest))
         extraction_data = _ensure_extraction_shape(_merge_extraction(extraction_data, _extract_json(extraction_reply)))
         
