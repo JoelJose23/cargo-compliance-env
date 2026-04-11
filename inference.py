@@ -73,7 +73,7 @@ def get_active_env_url() -> str:
     
     # 2. PROBE PORTS (Checking /tasks instead of /health)
     # Increased timeout to 1.0 for stability
-    for port in ["8000", "7860"]: 
+    for port in ["7860", "8000"]: 
         test_url = f"http://localhost:{port}"
         try:
             # We check /tasks because your environment.py definitely has it
