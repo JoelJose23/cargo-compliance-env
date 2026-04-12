@@ -1,83 +1,66 @@
-version: "1.0"
-spec_version: 1
-name: "cargo-compliance-challenge"
-benchmark: "CargoComplianceEnv"
-type: "space"
-runtime: "fastapi"
-app: "server.app:app"
-port: 7860
+name: Cargo Compliance Environment
 
-# 1. Execution Settings
-# Note: Judges require a root-level inference.py entrypoint.
-entrypoint: "python3 inference.py"
-timeout: 300 
-memory_limit: "4Gi"
+description: >
+  A bilateral cargo compliance benchmark where an LLM agent acts as a
+  customs broker, extracting shipment details and selecting the correct
+  regulatory framework for both origin (export) and destination (import).
 
-# 2. Tasks Definition (CRITICAL for the Validator)
-# This satisfies the "3 tasks with graders" error by explicitly listing them.
+version: "1.0.0"
+author: JoelJose23
+
+observation_space:
+  type: text
+  description: >
+    Shipment manifest with extraction state, available laws, documents,
+    and regulators for bilateral compliance verification.
+
+action_space:
+  type: discrete
+  actions:
+    - fetch_info
+    - submit_extract
+    - pick_law
+    - final_verdict
+  description: >
+    Multi-phase compliance actions across extraction, law selection, and audit.
+
+endpoints:
+  health: /health
+  reset: /reset
+  step: /step
+  state: /state
+
 tasks:
-  - id: "cargo_food"
-    task_id: "cargo_food"
-    name: "cargo_food"
-    description: "Easy: complete bilateral compliance screening for a food shipment."
-    objective: "Extract qty/category/origin/destination and select the exact food laws, regulator, and documents."
-    difficulty: "easy"
-    grader: "deterministic_programmatic"
-    grader_type: "programmatic"
-    has_grader: true
-    score_range: [0.01, 0.99]
-    pass_score: 0.70
-    weight: 1.0
-  - id: "cargo_electronics"
-    task_id: "cargo_electronics"
-    name: "cargo_electronics"
-    description: "Medium: resolve export-control obligations for a dual-use electronics shipment."
-    objective: "Identify the correct route and choose the matching electronics compliance package without extra laws."
-    difficulty: "medium"
-    grader: "deterministic_programmatic"
-    grader_type: "programmatic"
-    has_grader: true
-    score_range: [0.01, 0.99]
-    pass_score: 0.78
-    weight: 1.0
-  - id: "cargo_pharma"
-    task_id: "cargo_pharma"
-    name: "cargo_pharma"
-    description: "Hard: validate pharmaceutical API compliance across both jurisdictions."
-    objective: "Handle sparse pharma manifests and select the exact required laws, regulator, and paperwork."
-    difficulty: "hard"
-    grader: "deterministic_programmatic"
-    grader_type: "programmatic"
-    has_grader: true
-    score_range: [0.01, 0.99]
-    pass_score: 0.85
-    weight: 1.0
+  - id: cargo_food
+    description: >
+      Complete bilateral food-compliance screening for an agricultural
+      shipment. Extract qty, category, origin, destination and select
+      the exact food import/export laws, regulator, and documents.
+    steps: 5
+    ideal_action: final_verdict
 
-# 3. Environment Configuration
-env_vars:
-  API_BASE_URL: "${API_BASE_URL}"
-  MODEL_NAME: "${MODEL_NAME}"
-  HF_TOKEN: "${HF_TOKEN}"
-  API_KEY: "${API_KEY}"
-  WORLD_ENV_URL: "${WORLD_ENV_URL}"
-  # Mirror the validator task id into every variable the runner understands.
-  TASK_ID: "${TASK_ID}"
-  CURRENT_TASK_ID: "${TASK_ID}"
-  MY_ENV_V4_TASK: "${TASK_ID}"
-  CARGO_TASK_ID: "${TASK_ID}"
-  RESET_TASK_ID: "${TASK_ID}"
-  SUCCESS_SCORE_THRESHOLD: "0.70"
-  MY_ENV_V4_BENCHMARK: "CargoComplianceEnv"
+  - id: cargo_electronics
+    description: >
+      Resolve export-control obligations for a dual-use electronics
+      shipment. Identify origin/destination and choose the matching
+      electronics compliance package without extra laws.
+    steps: 5
+    ideal_action: final_verdict
 
-# 4. Build Requirements
-build:
-  python_version: "3.11"
-  requirements: "requirements.txt"
-  image: "python:3.11-slim"
+  - id: cargo_pharma
+    description: >
+      Validate pharmaceutical API compliance across origin and destination
+      jurisdictions. Select the exact controlled-substance paperwork
+      without hallucinating extra laws.
+    steps: 5
+    ideal_action: final_verdict
 
-# 5. Evaluation Metrics
-metrics:
-  - name: "total_reward"
-    goal: "maximize"
-  - name: "success_rate"
-    goal: "maximize"
+scoring:
+  reward_range: [0.0, 1.0]
+  success_threshold: 0.70
+  score_formula: grader_score
+
+constraints:
+  max_runtime_seconds: 1200
+  max_memory_gb: 8
+  max_vcpu: 2
