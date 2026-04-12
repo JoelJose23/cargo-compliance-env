@@ -33,7 +33,12 @@ This section tracks the performance of local LLMs across 10-run averages to esta
 > **Note:** Data reflects the mean success rate over 10 randomized seeds per task.
 
 ---
- Performance Distribution💡 Critical Insights: The Qwen-2 ParadoxThe benchmark revealed a shocking inverse correlation between parameter scale and regulatory reliability:The "Military Officer" Effect: Qwen2-0.5B significantly outperformed its 7B and 8B counterparts in the Electronics track ($0.99$ vs $0.65$). Its success is attributed to its low-inference "compliance-first" nature; it follows the state-machine logic as a deterministic operator without the "creative noise" found in larger models.Creative Friction in Large LLMs: Both Llama-3-8B and Mistral-7B exhibited high volatility. Their increased reasoning capacity led to "over-thinking" simple bilateral matches, often triggering the Operational Tax through unnecessary probing or failing the Deterministic Audit by attempting to nuance strict regulations.Reliability vs. Intelligence: While Llama-3 showed flashes of brilliance, Qwen2 was the only model to maintain a stable horizontal line above the pass mark. In a trade-compliance context, predictability is a higher-value asset than generalized reasoning.Note: Data reflects the mean success rate over 10 randomized seeds per task.
+ ### 💡 Critical Insights: The Qwen-2 Paradox
+The benchmark revealed a shocking inverse correlation between parameter scale and regulatory reliability:
+
+* **The "Military Officer" Effect:** **Qwen2-0.5B** significantly outperformed its 7B and 8B counterparts in the Electronics track (**0.99** vs **0.65**). Its success is attributed to its low-inference "compliance-first" nature; it follows the state-machine logic as a deterministic operator without the "creative noise" found in larger models.
+* **Creative Friction in Large LLMs:** Both **Llama-3-8B** and **Mistral-7B** exhibited high volatility. Their increased reasoning capacity led to "over-thinking" simple bilateral matches, often triggering the `Operational Tax` through unnecessary probing or failing the `Deterministic Audit` by attempting to nuance strict regulations.
+* **Reliability vs. Intelligence:** While Llama-3 showed flashes of brilliance, Qwen2 was the only model to maintain a stable horizontal line above the pass mark. In a trade-compliance context, **predictability is a higher-value asset than generalized reasoning.**
 ---
 
 ## 🛠️ Task Difficulty Matrix
