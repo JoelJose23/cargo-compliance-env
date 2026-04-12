@@ -29,21 +29,7 @@ This section tracks the performance of local LLMs across 10-run averages to esta
 | **Qwen2-0.5B** | 0.5B | `[DATA]` | `[DATA]` | `[DATA]` |
 
 ### 📈 Performance Distribution
-```text
-[ COMPLIANCE ACCURACY VS. MODEL SCALE ]
-  
-  1.0 ----------------------------------------------------
-      |                                      [LLAMA3]    |
-  0.8 |                      [MISTRAL]                   |
-      |                                                  |
-  0.6 |          [PHI-3]                                 |
-      |                                                  |
-  0.4 |                                                  |
-      |                                                  |
-  0.2 |  [QWEN2]                                         |
-      |__________________________________________________|
-         0.5B        3B        7B        8B        14B+
-```
+![Model Reliability Graph](asset/model_reliability_overtime.png)
 > **Note:** Data reflects the mean success rate over 10 randomized seeds per task.
 
 ---
