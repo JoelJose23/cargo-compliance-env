@@ -379,39 +379,28 @@ def get_llm_response(client: OpenAI, sys_prompt: str, user_prompt: str, max_toke
         return ""
 
 
-async def main() -> None:
+async def run_single_task(task_id: str, llm_client: OpenAI) -> None:
+    """Run one full episode for a single task, with its own [START]/[STEP]/[END] block."""
     rewards, steps_taken, score, success = [], 0, 0.0, False
-    log_start(task=REQUESTED_TASK_ID or TASK_NAME, env=BENCHMARK, model=MODEL_NAME)
+    log_start(task=task_id, env=BENCHMARK, model=MODEL_NAME)
 
-    if not wait_for_ready(WORLD_ENV_URL):
-        log_step(step=1, action="fail", reward=0.0, done=True, error="Environment server timeout.")
-        log_end(success=False, steps=0, score=0.0, rewards=[])
-        return
-
-    if not API_BASE_URL:
-        log_step(step=1, action="fail", reward=0.0, done=True, error="Missing API_BASE_URL")
-        log_end(success=False, steps=0, score=0.0, rewards=[])
-        return
-
-    if not API_KEY:
-        log_step(step=1, action="fail", reward=0.0, done=True, error="Missing API_KEY")
-        log_end(success=False, steps=0, score=0.0, rewards=[])
-        return
-
-    llm_client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
     env = CargoEnvClient(base_url=WORLD_ENV_URL)
 
     try:
-        session_id, obs = env.create_task(task_id=REQUESTED_TASK_ID)
+        session_id, obs = env.create_task(task_id=task_id)
         extraction_data: Dict[str, Any] = {}
 
         # --- PHASE 1: EXTRACTION ---
         raw_manifest = str(obs.manifest.get("raw_text", "")) if isinstance(obs.manifest, dict) else ""
         steps_taken += 1
-        extraction_reply = get_llm_response(llm_client, 'Return JSON with keys: "qty", "category[choose from Food,Nuclear,Pharmaceutical and Electronics]", "Destination", "Origin".', f"Extract:\n{raw_manifest}\nJSON only.")
+        extraction_reply = get_llm_response(
+            llm_client,
+            'Return JSON with keys: "qty", "category[choose from Food,Nuclear,Pharmaceutical and Electronics]", "Destination", "Origin".',
+            f"Extract:\n{raw_manifest}\nJSON only."
+        )
         extraction_data = _merge_extraction(extraction_data, _extract_manifest_fields(raw_manifest))
         extraction_data = _ensure_extraction_shape(_merge_extraction(extraction_data, _extract_json(extraction_reply)))
-        
+
         obs = await env.step(session_id, Cargo_Action(action_type=Cargo_FetchState.SUBMIT_EXTRACT, decision=json.dumps(extraction_data)))
         rewards.append(_to_float(obs.reward))
         log_step(step=steps_taken, action="extract", reward=rewards[-1], done=False, error=None)
@@ -423,7 +412,6 @@ async def main() -> None:
             previous_extraction = dict(extraction_data)
             mismatch_fields = _mismatches_from_feedback(obs.text or "")
 
-            # If server tells us exactly what mismatched, force a targeted question.
             if mismatch_fields and questions_used < 3:
                 question_map = {
                     "qty": "What is the exact qty?",
@@ -442,11 +430,9 @@ async def main() -> None:
             else:
                 decision = _extract_json(get_llm_response(
                     llm_client,
-                    'Output ONLY JSON: {"action":"ask"|"submit","question":"...","extraction":{...}}. '
-                    'If feedback says mismatch, prefer "action":"ask".',
-                    f"Current: {json.dumps(extraction_data)}\nFeedback: {obs.text}extraction"
+                    'Output ONLY JSON: {"action":"ask"|"submit","question":"...","extraction":{...}}.',
+                    f"Current: {json.dumps(extraction_data)}\nFeedback: {obs.text}"
                 ))
-                
                 if _normalize_scalar(decision.get("action")).lower() == "ask" and questions_used < 3:
                     question = _normalize_scalar(decision.get("question")) or "Confirm origin, destination, qty, and category?"
                     steps_taken += 1
@@ -465,16 +451,9 @@ async def main() -> None:
                 else:
                     extraction_data = _merge_extraction(extraction_data, decision.get("extraction", {}))
 
-                # If nothing changed and we can still ask, force a broad recovery question.
                 if extraction_data == previous_extraction and questions_used < 3:
                     steps_taken += 1
-                    obs = await env.step(
-                        session_id,
-                        Cargo_Action(
-                            action_type=Cargo_FetchState.FETCH_INFO,
-                            decision="Confirm origin, destination, qty, and category?"
-                        ),
-                    )
+                    obs = await env.step(session_id, Cargo_Action(action_type=Cargo_FetchState.FETCH_INFO, decision="Confirm origin, destination, qty, and category?"))
                     rewards.append(_to_float(obs.reward))
                     log_step(step=steps_taken, action="ask", reward=rewards[-1], done=False, error=None)
                     questions_used += 1
@@ -485,7 +464,8 @@ async def main() -> None:
             obs = await env.step(session_id, Cargo_Action(action_type=Cargo_FetchState.SUBMIT_EXTRACT, decision=json.dumps(extraction_data)))
             rewards.append(_to_float(obs.reward))
             log_step(step=steps_taken, action="extract_retry", reward=rewards[-1], done=False, error=None)
-            if "answered enough questions" in (obs.text or "").lower(): break
+            if "answered enough questions" in (obs.text or "").lower():
+                break
 
         # --- PHASE 2: LAW SELECTION ---
         if obs.available_laws:
@@ -495,51 +475,50 @@ async def main() -> None:
             candidate_documents = list(dict.fromkeys(getattr(obs, "available_documents", []) or []))
             candidate_regulators = list(dict.fromkeys(getattr(obs, "available_regulators", []) or []))
             if current_category:
-                category_filtered = [
-                    law for law in obs.available_laws
-                    if _normalize_scalar(law.get("category")).lower() == current_category
-                ]
+                category_filtered = [law for law in obs.available_laws if _normalize_scalar(law.get("category")).lower() == current_category]
                 if category_filtered:
                     candidate_laws = category_filtered
 
             law_pkg = _extract_json(get_llm_response(
                 llm_client,
-                "Output ONLY JSON keys: laws (array), regulator (string), documents (array). "
-                "Use laws directly from the provided options by id or exact name.",
-                f"Extraction: {json.dumps(obs.current_extraction)}\nOptions: {json.dumps(candidate_laws)}"
+                (
+                    "Output ONLY JSON keys: laws (array), regulator (string), documents (array). "
+                    "You MUST select laws from BOTH the Origin country's export obligations "
+                    "AND the Destination country's import obligations. "
+                    "Use exact law names from the provided options."
+                ),
+                (
+                    f"Origin: {(obs.current_extraction or {}).get('Origin')}\n"
+                    f"Destination: {(obs.current_extraction or {}).get('Destination')}\n"
+                    f"Category: {(obs.current_extraction or {}).get('category')}\n"
+                    f"Available laws: {json.dumps(candidate_laws)}"
+                )
             ))
             selected_laws = _normalize_laws(law_pkg.get("laws"), candidate_laws)
-            #if not selected_laws:
-                # Fallback to exact names from available options if LLM output is unparseable.
-                #selected_laws = _available_law_names(candidate_laws)
             selected_regulator = _normalize_scalar(law_pkg.get("regulator"))
-            #if candidate_regulators and not selected_regulator:
-                #selected_regulator = " / ".join(candidate_regulators)
+            if candidate_regulators and not selected_regulator:
+                selected_regulator = " / ".join(candidate_regulators)
             selected_documents = _normalize_documents(law_pkg.get("documents"))
-            #if candidate_documents:
-                #selected_documents = list(dict.fromkeys(candidate_documents + selected_documents))
-            package = {
-                "laws": selected_laws,
-                "regulator": selected_regulator,
-                "documents": selected_documents,
-            }
-            if DEBUG_RUN:
-                print(
-                    f"[DEBUG] category={current_category or 'unknown'} "
-                    f"laws_selected={len(package['laws'])} laws_available={len(obs.available_laws)} "
-                    f"candidate_laws={len(candidate_laws)} docs_selected={len(package['documents'])} "
-                    f"regs_selected={1 if package['regulator'] else 0}",
-                    flush=True,
-                )
-            
+            if candidate_documents and not selected_documents:
+                selected_documents = candidate_documents
+            package = {"laws": selected_laws, "regulator": selected_regulator, "documents": selected_documents}
+
             obs = await env.step(session_id, Cargo_Action(action_type=Cargo_FetchState.PICK_LAW, decision=json.dumps(package)))
             rewards.append(_to_float(obs.reward))
             log_step(step=steps_taken, action="laws", reward=rewards[-1], done=False, error=None)
 
             # --- PHASE 3: FINAL AUDIT ---
             steps_taken += 1
-            reasoning = get_llm_response(llm_client, "Write exactly 3 concise sentences justifying compliance.", f"Extraction: {json.dumps(obs.current_extraction)}\nPackage: {json.dumps(package)}", max_tokens=240)
-            obs = await env.step(session_id, Cargo_Action(action_type=Cargo_FetchState.FINAL_VERDICT, decision=reasoning or "Compliance requirements met. Documents and laws align. Cleared for transport."))
+            reasoning = get_llm_response(
+                llm_client,
+                "Write exactly 3 concise sentences justifying compliance.",
+                f"Extraction: {json.dumps(obs.current_extraction)}\nPackage: {json.dumps(package)}",
+                max_tokens=240
+            )
+            obs = await env.step(session_id, Cargo_Action(
+                action_type=Cargo_FetchState.FINAL_VERDICT,
+                decision=reasoning or "Compliance requirements met. Documents and laws align. Cleared for transport."
+            ))
             rewards.append(_to_float(obs.reward))
             log_step(step=steps_taken, action="audit", reward=rewards[-1], done="episode finished" in (obs.text or "").lower(), error=None)
 
@@ -549,7 +528,7 @@ async def main() -> None:
         else:
             raw_score = sum(rewards) / MAX_TOTAL_REWARD if MAX_TOTAL_REWARD > 0 else 0.0
             score = min(max(raw_score, 0.01), 0.99)
-        pass_score = TASK_PASS_SCORES.get(REQUESTED_TASK_ID, SUCCESS_SCORE_THRESHOLD)
+        pass_score = TASK_PASS_SCORES.get(task_id, SUCCESS_SCORE_THRESHOLD)
         success = score >= pass_score
 
     except Exception as exc:
@@ -557,6 +536,32 @@ async def main() -> None:
     finally:
         log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
 
+
+async def main() -> None:
+    if not wait_for_ready(WORLD_ENV_URL):
+        for task in TASKS:
+            log_start(task=task["id"], env=BENCHMARK, model=MODEL_NAME)
+            log_step(step=1, action="fail", reward=0.0, done=True, error="Environment server timeout.")
+            log_end(success=False, steps=0, score=0.0, rewards=[])
+        return
+
+    # Read OPENAI_API_KEY as required by the validator spec
+    api_key = os.getenv("OPENAI_API_KEY") or API_KEY
+    api_base = os.getenv("API_BASE_URL") or "https://api.openai.com/v1"
+    model = os.getenv("MODEL_NAME") or "gpt-4o-mini"
+
+    if not api_key:
+        for task in TASKS:
+            log_start(task=task["id"], env=BENCHMARK, model=model)
+            log_step(step=1, action="fail", reward=0.0, done=True, error="Missing OPENAI_API_KEY")
+            log_end(success=False, steps=0, score=0.0, rewards=[])
+        return
+
+    llm_client = OpenAI(base_url=api_base, api_key=api_key)
+
+    # Run ALL 3 tasks — this is what the validator requires
+    for task in TASKS:
+        await run_single_task(task["id"], llm_client)
 
 if __name__ == "__main__":
     try:
