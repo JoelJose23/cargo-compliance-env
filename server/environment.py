@@ -7,15 +7,21 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from openenv.core.env_server import Environment
-from ..models import Cargo_Action, Cargo_Observation, Cargo_FetchState, Cargo_State
+
+try:
+    from models import Cargo_Action, Cargo_Observation, Cargo_FetchState, Cargo_State
+except ImportError:
+    from models import Cargo_Action, Cargo_Observation, Cargo_FetchState, Cargo_State
 import re
 from dotenv import load_dotenv
 
 load_dotenv()
 
+
 # Define the expected JSON payload
 class ResetRequest(BaseModel):
     task_id: Optional[str] = None
+
 
 app = FastAPI(title="Cargo Compliance Production API", version="1.0.0")
 
@@ -42,21 +48,22 @@ def _normalize_law_list(country: Dict[str, Any], rule_key: str) -> List[str]:
         return country_laws
     return []
 
+
 # --- Data Loading Engine ---
 def load_environment_data(json_path: str) -> Tuple[List[Dict], List[Dict]]:
     with open(json_path, "r") as f:
         raw_data = json.load(f)
-        
+
     available_laws = []
     prompt_pool = []
-    
+
     category_map = {
         "Food Products (Processed, Packaged, Agricultural)": "Food",
         "Radioactive Materials and Nuclear Goods": "Nuclear",
         "Pharmaceutical Drugs (Finished Formulations, APIs, Controlled Substances)": "Pharmaceutical",
-        "Electronics (Consumer, Industrial, and Dual-use Goods)": "Electronics"
+        "Electronics (Consumer, Industrial, and Dual-use Goods)": "Electronics",
     }
-    
+
     # 1. Build the AVAILABLE_LAWS registry
     law_counter = 1
     # Inside load_environment_data
@@ -68,23 +75,27 @@ def load_environment_data(json_path: str) -> Tuple[List[Dict], List[Dict]]:
 
             # Tag Import Laws
             for law in import_laws:
-                available_laws.append({
-                    "id": f"LAW_{law_counter:03d}",
-                    "name": law,
-                    "category": category,
-                    "country": country["name"],
-                    "type": "Import" # NEW TAG
-                })
+                available_laws.append(
+                    {
+                        "id": f"LAW_{law_counter:03d}",
+                        "name": law,
+                        "category": category,
+                        "country": country["name"],
+                        "type": "Import",  # NEW TAG
+                    }
+                )
                 law_counter += 1
             # Tag Export Laws
             for law in export_laws:
-                available_laws.append({
-                    "id": f"LAW_{law_counter:03d}",
-                    "name": law,
-                    "category": category,
-                    "country": country["name"],
-                    "type": "Export" # NEW TAG
-                })
+                available_laws.append(
+                    {
+                        "id": f"LAW_{law_counter:03d}",
+                        "name": law,
+                        "category": category,
+                        "country": country["name"],
+                        "type": "Export",  # NEW TAG
+                    }
+                )
                 law_counter += 1
 
     # 2. Build the PROMPT_POOL dynamically
@@ -92,28 +103,29 @@ def load_environment_data(json_path: str) -> Tuple[List[Dict], List[Dict]]:
         "Food": "Organic Cavendish Bananas",
         "Nuclear": "Uranium-235 Isotopes",
         "Pharmaceutical": "Amoxicillin Active Pharmaceutical Ingredients",
-        "Electronics": "Lithium-ion Battery Packs"
+        "Electronics": "Lithium-ion Battery Packs",
     }
-    
+
     for industry_block in raw_data:
         category = category_map.get(industry_block["industry"], "General")
         countries = industry_block.get("countries", [])
-        
+
         if len(countries) >= 2:
             # Increased range to 5 to get a better mix of full and broken prompts
-            for _ in range(5): 
+            for _ in range(5):
                 origin, destination = random.sample(countries, 2)
-                
+
                 required_export_laws = _normalize_law_list(origin, "export_rules")
                 required_import_laws = _normalize_law_list(destination, "import_rules")
                 all_required_laws = required_export_laws + required_import_laws
-                
+
                 red_herrings = [
-                    law["name"] for law in available_laws 
-                    if law["category"] != category
+                    law["name"] for law in available_laws if law["category"] != category
                 ]
-                selected_herrings = random.sample(red_herrings, min(2, len(red_herrings)))
-                
+                selected_herrings = random.sample(
+                    red_herrings, min(2, len(red_herrings))
+                )
+
                 qty = f"{random.randint(50, 500)} units"
                 item = sample_goods.get(category, "Industrial Cargo")
                 reg_key = f"{category.lower()}_regulator"
@@ -121,38 +133,43 @@ def load_environment_data(json_path: str) -> Tuple[List[Dict], List[Dict]]:
                 # --- NEW: PROMPT VARIANT LOGIC ---
                 # This ensures the agent isn't always fed the answer on a silver platter.
                 prompt_variants = [
-                    f"Shipping {qty} of {item} from {origin['name']} to {destination['name']}.", # Perfect
-                    f"Shipping {qty} of {item} to {destination['name']}.",                       # Missing Origin
-                    f"I need to move {item} from {origin['name']} to {destination['name']}.",    # Missing Qty
-                    f"New shipment of {qty} from {origin['name']} to {destination['name']}.",    # Missing Category
-                    f"Requesting compliance check for cargo from {origin['name']} to {destination['name']}." # Barebones
+                    f"Shipping {qty} of {item} from {origin['name']} to {destination['name']}.",  # Perfect
+                    f"Shipping {qty} of {item} to {destination['name']}.",  # Missing Origin
+                    f"I need to move {item} from {origin['name']} to {destination['name']}.",  # Missing Qty
+                    f"New shipment of {qty} from {origin['name']} to {destination['name']}.",  # Missing Category
+                    f"Requesting compliance check for cargo from {origin['name']} to {destination['name']}.",  # Barebones
                 ]
-                
+
                 # Pick one variant randomly for this entry in the pool
                 selected_text = random.choice(prompt_variants)
-                
-                prompt_pool.append({
-                    "text": selected_text,
-                    "truth": {
-                        "qty": qty,
-                        "category": category,
-                        "Destination": destination["name"],
-                        "Origin": origin["name"],
-                        "dest_regulator": destination.get(reg_key, "N/A"),
-                        "origin_regulator": origin.get(reg_key, "N/A"),
-                        "import_rules": destination.get("import_rules", {}),
-                        "export_rules": origin.get("export_rules", {}),
-                        "required_export_laws": required_export_laws,
-                        "required_import_laws": required_import_laws,
-                        "all_required_laws": all_required_laws,
-                        "red_herrings": selected_herrings
+
+                prompt_pool.append(
+                    {
+                        "text": selected_text,
+                        "truth": {
+                            "qty": qty,
+                            "category": category,
+                            "Destination": destination["name"],
+                            "Origin": origin["name"],
+                            "dest_regulator": destination.get(reg_key, "N/A"),
+                            "origin_regulator": origin.get(reg_key, "N/A"),
+                            "import_rules": destination.get("import_rules", {}),
+                            "export_rules": origin.get("export_rules", {}),
+                            "required_export_laws": required_export_laws,
+                            "required_import_laws": required_import_laws,
+                            "all_required_laws": all_required_laws,
+                            "red_herrings": selected_herrings,
+                        },
                     }
-                })
+                )
 
     return available_laws, prompt_pool
 
+
 _BASE_DIR = os.path.dirname(__file__)
-_DATA_PATH = os.path.abspath(os.path.join(_BASE_DIR, "..", "data", "final_dataset.json"))
+_DATA_PATH = os.path.abspath(
+    os.path.join(_BASE_DIR, "..", "data", "final_dataset.json")
+)
 AVAILABLE_LAWS, PROMPT_POOL = load_environment_data(_DATA_PATH)
 
 TASK_SPECS = {
@@ -186,31 +203,33 @@ SUPPORTED_CATEGORIES = set(CATEGORY_TO_TASK.keys())
 class CargoComplianceEnv(Environment):
     def __init__(self, base_url: str = "http://localhost:7860"):
         self.sessions: Dict[str, Cargo_State] = {}
-        self.last_session_id:  Optional[str] = None
-    
-    def reset(self, seed = None, options = None) -> Tuple[Cargo_Observation, Dict[str, Any]]:
+        self.last_session_id: Optional[str] = None
+
+    def reset(
+        self, seed=None, options=None
+    ) -> Tuple[Cargo_Observation, Dict[str, Any]]:
         # Extract the task_id from the options dictionary if it exists
         task_id = options.get("task_id") if options else None
-        
+
         # Pass the task_id down to your create_task function
         session_id, obs = self.create_task(task_id=task_id)
-        
+
         self.last_session_id = session_id
         return obs, {"session_id": session_id}
-    
-    def state(self) -> Dict[str,Any]:
+
+    def state(self) -> Dict[str, Any]:
         if not self.last_session_id or self.last_session_id not in self.sessions:
             return {}
-        
+
         state_obj = self.sessions[self.last_session_id]
         return {
-            "phase":state_obj.phase,
-            "steps":state_obj.steps,
+            "phase": state_obj.phase,
+            "steps": state_obj.steps,
             "questions_asked": state_obj.questions_asked,
             "extraction_data": state_obj.extraction_data,
             "total_reward": state_obj.total_reward,
         }
-        
+
     async def get_programmatic_grade(self, extraction: dict, truth: dict) -> float:
         """Deterministic 0-1 grader used by the validator."""
         extraction = extraction or {}
@@ -220,34 +239,56 @@ class CargoComplianceEnv(Environment):
 
         qty_truth = clean(truth.get("qty"))
         qty_guess = clean(extraction.get("qty"))
-        qty_score = 1.0 if qty_guess and (qty_guess in qty_truth or qty_truth in qty_guess) else 0.0
+        qty_score = (
+            1.0
+            if qty_guess and (qty_guess in qty_truth or qty_truth in qty_guess)
+            else 0.0
+        )
 
         extraction_fields = (
             qty_score,
-            1.0 if clean(extraction.get("category")) == clean(truth.get("category")) else 0.0,
-            1.0 if clean(extraction.get("Destination")) == clean(truth.get("Destination")) else 0.0,
-            1.0 if clean(extraction.get("Origin")) == clean(truth.get("Origin")) else 0.0,
+            1.0
+            if clean(extraction.get("category")) == clean(truth.get("category"))
+            else 0.0,
+            1.0
+            if clean(extraction.get("Destination")) == clean(truth.get("Destination"))
+            else 0.0,
+            1.0
+            if clean(extraction.get("Origin")) == clean(truth.get("Origin"))
+            else 0.0,
         )
         extraction_score = sum(extraction_fields) / 4.0
 
         selected_laws = set(extraction.get("laws", []))
         required_laws = set(truth.get("all_required_laws", []))
         if not required_laws:
-            required_laws = set(truth.get("required_export_laws", [])) | set(truth.get("required_import_laws", []))
-        law_match_score = len(selected_laws.intersection(required_laws)) / max(1, len(required_laws))
+            required_laws = set(truth.get("required_export_laws", [])) | set(
+                truth.get("required_import_laws", [])
+            )
+        law_match_score = len(selected_laws.intersection(required_laws)) / max(
+            1, len(required_laws)
+        )
         law_extras = selected_laws - required_laws
         red_herrings = set(truth.get("red_herrings", []))
-        law_penalty = sum(0.5 if law in red_herrings else 1.0 for law in law_extras) / max(1, len(required_laws))
+        law_penalty = sum(
+            0.5 if law in red_herrings else 1.0 for law in law_extras
+        ) / max(1, len(required_laws))
         law_score = max(0.0, law_match_score - law_penalty)
 
         regulator_targets = [truth.get("origin_regulator"), truth.get("dest_regulator")]
-        regulator_targets = [clean(reg) for reg in regulator_targets if reg and reg != "N/A"]
+        regulator_targets = [
+            clean(reg) for reg in regulator_targets if reg and reg != "N/A"
+        ]
         regulator_guess = clean(extraction.get("regulator"))
-        regulator_hits = sum(1 for reg in regulator_targets if reg and reg in regulator_guess)
+        regulator_hits = sum(
+            1 for reg in regulator_targets if reg and reg in regulator_guess
+        )
         regulator_score = regulator_hits / max(1, len(regulator_targets))
 
         selected_docs = extraction.get("documents", []) or []
-        required_docs = truth.get("import_rules", {}).get("documents", []) + truth.get("export_rules", {}).get("documents", [])
+        required_docs = truth.get("import_rules", {}).get("documents", []) + truth.get(
+            "export_rules", {}
+        ).get("documents", [])
         matched_docs = set()
         for doc in selected_docs:
             clean_doc = clean(doc)
@@ -269,7 +310,9 @@ class CargoComplianceEnv(Environment):
         # two-decimal output convention.
         return round(max(0.01, min(0.99, final_score)), 2)
 
-    def create_task(self, task_id: Optional[str] = None) -> Tuple[str, Cargo_Observation]:
+    def create_task(
+        self, task_id: Optional[str] = None
+    ) -> Tuple[str, Cargo_Observation]:
         session_id = str(uuid.uuid4())
         final_task_id = None
         selected_task = None
@@ -277,13 +320,27 @@ class CargoComplianceEnv(Environment):
         if task_id in TASK_SPECS:
             final_task_id = task_id
             target_category = TASK_SPECS[final_task_id]["category"]
-            filtered_pool = [p for p in PROMPT_POOL if p["truth"]["category"] == target_category]
-            selected_task = random.choice(filtered_pool) if filtered_pool else random.choice(PROMPT_POOL)
+            filtered_pool = [
+                p for p in PROMPT_POOL if p["truth"]["category"] == target_category
+            ]
+            selected_task = (
+                random.choice(filtered_pool)
+                if filtered_pool
+                else random.choice(PROMPT_POOL)
+            )
         else:
-            supported_pool = [p for p in PROMPT_POOL if p["truth"]["category"] in SUPPORTED_CATEGORIES]
-            selected_task = random.choice(supported_pool) if supported_pool else random.choice(PROMPT_POOL)
-            final_task_id = CATEGORY_TO_TASK.get(selected_task["truth"]["category"], "cargo_food")
-        
+            supported_pool = [
+                p for p in PROMPT_POOL if p["truth"]["category"] in SUPPORTED_CATEGORIES
+            ]
+            selected_task = (
+                random.choice(supported_pool)
+                if supported_pool
+                else random.choice(PROMPT_POOL)
+            )
+            final_task_id = CATEGORY_TO_TASK.get(
+                selected_task["truth"]["category"], "cargo_food"
+            )
+
         state = Cargo_State(
             task_id=session_id,
             steps=0,
@@ -291,14 +348,23 @@ class CargoComplianceEnv(Environment):
             phase="EXTRACTION",
             questions_asked=0,
             total_reward=0.0,
-            extraction_data={"qty": None, "category": None, "Destination": None, "Origin": None, "laws": [], "regulator": None, "documents": [], "duties": []}
+            extraction_data={
+                "qty": None,
+                "category": None,
+                "Destination": None,
+                "Origin": None,
+                "laws": [],
+                "regulator": None,
+                "documents": [],
+                "duties": [],
+            },
         )
-        
-        state.task_id_name = final_task_id 
-        
+
+        state.task_id_name = final_task_id
+
         state.ground_truth = selected_task["truth"]
         self.sessions[session_id] = state
-        
+
         initial_obs = Cargo_Observation(
             text=f"NEW SHIPMENT: {selected_task['text']}\nExtract into JSON: qty, category, Destination, Origin. Max 3 questions. Penalty: -0.1/question, -1.0/wrong guess.",
             current_extraction=state.extraction_data,
@@ -313,13 +379,13 @@ class CargoComplianceEnv(Environment):
             history=[],
             step=0,
             reward=0.0,
-            total_reward=0.0
+            total_reward=0.0,
         )
         return session_id, initial_obs
 
     async def step(self, session_id: str, action: Cargo_Action) -> Cargo_Observation:
         state = self.sessions.get(session_id)
-        if not state: 
+        if not state:
             raise ValueError("Session not found.")
 
         truth = state.ground_truth
@@ -328,7 +394,7 @@ class CargoComplianceEnv(Environment):
         grader_score = None
         state.steps += 1
 
-        def clean(v): 
+        def clean(v):
             return str(v or "").strip().lower()
 
         # --- PHASE 1: EXTRACTION -
@@ -338,20 +404,26 @@ class CargoComplianceEnv(Environment):
                     state.questions_asked += 1
                     # The "Annoyance Cost": Asking a question costs a small amount of reward
                     step_reward = -0.1
-                    
+
                     query = action.decision.lower()
                     responses = []
-                    
-                    # The Environment (Customer) checks if the Seller (Agent) is asking 
+
+                    # The Environment (Customer) checks if the Seller (Agent) is asking
                     # about specific missing fields.
                     if "origin" in query:
-                        responses.append(f"The shipment is originating from {truth['Origin']}")
+                        responses.append(
+                            f"The shipment is originating from {truth['Origin']}"
+                        )
                     if "qty" in query or "quantity" in query:
                         responses.append(f"The total quantity is {truth['qty']}")
                     if "category" in query:
-                        responses.append(f"This falls under the {truth['category']} category")
+                        responses.append(
+                            f"This falls under the {truth['category']} category"
+                        )
                     if "destination" in query or "dest" in query:
-                        responses.append(f"The final destination is {truth['Destination']}")
+                        responses.append(
+                            f"The final destination is {truth['Destination']}"
+                        )
 
                     if responses:
                         # The "Customer" answers the question
@@ -360,12 +432,12 @@ class CargoComplianceEnv(Environment):
                     else:
                         # The "Customer" is confused by the question
                         obs_text = f"CUSTOMER REPLY: 'I don't understand that question. I'm shipping cargo.' [Questions Used: {state.questions_asked}/3]"
-                
+
                 else:
                     # The Customer is fed up and refuses to answer more
                     step_reward = -0.2
                     obs_text = "CUSTOMER: 'I've answered enough questions. Please just process the shipment!'"
-        
+
             elif action.action_type == Cargo_FetchState.SUBMIT_EXTRACT:
                 try:
                     data = json.loads(action.decision)
@@ -377,7 +449,7 @@ class CargoComplianceEnv(Environment):
                     fields = ["qty", "category", "Destination", "Origin"]
                     correct_count = 0
                     mismatches = []
-                    
+
                     # 1. Check Qty (Fuzzy match FIX)
                     ext_qty = clean(data.get("qty"))
                     truth_qty = clean(truth["qty"])
@@ -386,7 +458,7 @@ class CargoComplianceEnv(Environment):
                         correct_count += 1
                     else:
                         mismatches.append("Qty")
-                        
+
                     # 2. Check Standard Fields (FIX: Ensure no empty matches)
                     for f in ["category", "Destination", "Origin"]:
                         ext_val = clean(data.get(f))
@@ -397,20 +469,22 @@ class CargoComplianceEnv(Environment):
 
                     # Calculate Partial Credit (0.25 per correct field)
                     base_reward = (correct_count / len(fields)) * 1.0
-                    
+
                     # Apply "Cost of Living" penalty for questions asked
                     step_reward = base_reward - (state.questions_asked * 0.1)
 
                     if correct_count == len(fields):
                         state.phase = "SELECTION"
-                        obs_text = "Extraction Verified. Phase 2: Select Compliance Package."
+                        obs_text = (
+                            "Extraction Verified. Phase 2: Select Compliance Package."
+                        )
                     else:
                         # Don't fail immediately, let them try again, but penalize the mismatch
-                        step_reward -= 0.5 
-                        
+                        step_reward -= 0.5
+
                         # THE FIX: Explicitly instruct the LLM to break the loop
                         obs_text = f"Extraction Failed: Missing or incorrect data . SYSTEM DIRECTIVE: Do not guess. You MUST use the 'FETCH_INFO' tool to ask the customer for this missing data."
-                        
+
                 except (json.JSONDecodeError, TypeError, ValueError):
                     step_reward = -1.0
                     obs_text = "ERROR: Invalid JSON format. Please submit valid JSON."
@@ -422,14 +496,14 @@ class CargoComplianceEnv(Environment):
                     decision = json.loads(action.decision)
                     if not isinstance(decision, dict):
                         raise ValueError("Expected a JSON object.")
-                    
+
                     # 1. Score Laws (Bilateral: Export + Import)
                     selected_laws = decision.get("laws", [])
                     unique_selected_laws = list(dict.fromkeys(selected_laws))
                     state.extraction_data["laws"] = unique_selected_laws
-                    
+
                     selected_laws_set = set(unique_selected_laws)
-                    
+
                     # Split Ground Truth sets
                     export_truth = set(truth.get("required_export_laws", []))
                     import_truth = set(truth.get("required_import_laws", []))
@@ -438,68 +512,94 @@ class CargoComplianceEnv(Environment):
                     # Calculate Matches
                     export_matches = selected_laws_set.intersection(export_truth)
                     import_matches = selected_laws_set.intersection(import_truth)
-                    
+
                     # Scoring: 1.0 for Export, 1.0 for Import (Total +2.0)
-                    export_score = (len(export_matches) / max(1, len(export_truth))) * 1.0
-                    import_score = (len(import_matches) / max(1, len(import_truth))) * 1.0
-                    
+                    export_score = (
+                        len(export_matches) / max(1, len(export_truth))
+                    ) * 1.0
+                    import_score = (
+                        len(import_matches) / max(1, len(import_truth))
+                    ) * 1.0
+
                     # Hallucination Penalty
                     extra_laws = selected_laws_set - export_truth - import_truth
-                    law_penalty = sum(0.3 if law in red_herrings else 0.5 for law in extra_laws)
-                    
+                    law_penalty = sum(
+                        0.3 if law in red_herrings else 0.5 for law in extra_laws
+                    )
+
                     step_reward += max(0.0, (export_score + import_score) - law_penalty)
 
                     # 2. Score Regulators (+1.0 Total: 0.5 for Origin, 0.5 for Dest)
                     agent_regulator = clean(decision.get("regulator", ""))
                     state.extraction_data["regulator"] = agent_regulator
-                    
+
                     reg_score = 0.0
                     # Check Origin Regulator
-                    if truth["origin_regulator"] != "N/A" and truth["origin_regulator"].lower() in agent_regulator:
+                    if (
+                        truth["origin_regulator"] != "N/A"
+                        and truth["origin_regulator"].lower() in agent_regulator
+                    ):
                         reg_score += 0.5
                     # Check Destination Regulator
-                    if truth["dest_regulator"] != "N/A" and truth["dest_regulator"].lower() in agent_regulator:
+                    if (
+                        truth["dest_regulator"] != "N/A"
+                        and truth["dest_regulator"].lower() in agent_regulator
+                    ):
                         reg_score += 0.5
-                    
+
                     step_reward += reg_score
-                        
+
                     # 3. Score Documents (Max +2.0 points)
                     agent_docs = decision.get("documents", [])
                     unique_agent_docs = list(dict.fromkeys(agent_docs))
                     state.extraction_data["documents"] = unique_agent_docs
-                    
+
                     # Combine Export & Import Docs for the truth set
-                    all_required_docs = set(truth["import_rules"].get("documents", []) + 
-                                            truth["export_rules"].get("documents", []))
-                    
+                    all_required_docs = set(
+                        truth["import_rules"].get("documents", [])
+                        + truth["export_rules"].get("documents", [])
+                    )
+
                     matched_required_docs = set()
                     for doc in unique_agent_docs:
                         clean_doc = clean(doc)
                         if len(clean_doc) > 4:
                             matched_doc = next(
-                                (req_doc for req_doc in all_required_docs
-                                 if clean_doc in clean(req_doc) or clean(req_doc) in clean_doc),
+                                (
+                                    req_doc
+                                    for req_doc in all_required_docs
+                                    if clean_doc in clean(req_doc)
+                                    or clean(req_doc) in clean_doc
+                                ),
                                 None,
                             )
                             if matched_doc:
                                 matched_required_docs.add(matched_doc)
 
-                    doc_base_score = (len(matched_required_docs) / max(1, len(all_required_docs))) * 2.0
-                    doc_penalty = min(0.5, (len(unique_agent_docs) - len(matched_required_docs)) * 0.1)
-                    
+                    doc_base_score = (
+                        len(matched_required_docs) / max(1, len(all_required_docs))
+                    ) * 2.0
+                    doc_penalty = min(
+                        0.5, (len(unique_agent_docs) - len(matched_required_docs)) * 0.1
+                    )
+
                     step_reward += max(0.0, doc_base_score - doc_penalty)
-                    
+
                     state.phase = "VERDICT"
-                    obs_text = "Bilateral compliance verified. Final Step: Submit Reasoning."
-                    
+                    obs_text = (
+                        "Bilateral compliance verified. Final Step: Submit Reasoning."
+                    )
+
                 except (json.JSONDecodeError, TypeError, ValueError):
                     step_reward = -1.0
                     obs_text = "ERROR: Provide laws, regulator, and documents in a JSON object."
-                    
+
         # --- PHASE 3: FINAL AUDIT ---
         elif state.phase == "VERDICT":
             if action.action_type == Cargo_FetchState.FINAL_VERDICT:
-                grader_score = await self.get_programmatic_grade(state.extraction_data, truth)
+                grader_score = await self.get_programmatic_grade(
+                    state.extraction_data, truth
+                )
                 step_reward += grader_score
                 obs_text = f"Audit Complete. Programmatic Grade: {grader_score}. Episode Finished."
 
@@ -512,7 +612,7 @@ class CargoComplianceEnv(Environment):
                 step_reward *= 1.5  # Mistakes are 50% more costly
             if action.action_type == Cargo_FetchState.SUBMIT_EXTRACT:
                 if correct_count < len(fields):
-                    step_reward = -0.5 # No partial credit for Pharma
+                    step_reward = -0.5  # No partial credit for Pharma
         elif "electronics" in current_task:  # MEDIUM
             if step_reward < 0:
                 step_reward *= 1.2
@@ -525,22 +625,44 @@ class CargoComplianceEnv(Environment):
 
         # Filter laws for the LLM based on destination
         # Filter laws for BOTH countries
-        available_laws_subset = [
-            law for law in AVAILABLE_LAWS 
-            if (clean(law["country"]) == clean(truth["Origin"]) and law["type"] == "Export") or 
-            (clean(law["country"]) == clean(truth["Destination"]) and law["type"] == "Import")
-        ] if state.phase == "SELECTION" else []
-        available_documents = list(dict.fromkeys(
-            truth.get("import_rules", {}).get("documents", []) +
-            truth.get("export_rules", {}).get("documents", [])
-        )) if state.phase == "SELECTION" else []
-        available_regulators = [
-            regulator for regulator in [
-                truth.get("origin_regulator"),
-                truth.get("dest_regulator"),
+        available_laws_subset = (
+            [
+                law
+                for law in AVAILABLE_LAWS
+                if (
+                    clean(law["country"]) == clean(truth["Origin"])
+                    and law["type"] == "Export"
+                )
+                or (
+                    clean(law["country"]) == clean(truth["Destination"])
+                    and law["type"] == "Import"
+                )
             ]
-            if regulator and regulator != "N/A"
-        ] if state.phase == "SELECTION" else []
+            if state.phase == "SELECTION"
+            else []
+        )
+        available_documents = (
+            list(
+                dict.fromkeys(
+                    truth.get("import_rules", {}).get("documents", [])
+                    + truth.get("export_rules", {}).get("documents", [])
+                )
+            )
+            if state.phase == "SELECTION"
+            else []
+        )
+        available_regulators = (
+            [
+                regulator
+                for regulator in [
+                    truth.get("origin_regulator"),
+                    truth.get("dest_regulator"),
+                ]
+                if regulator and regulator != "N/A"
+            ]
+            if state.phase == "SELECTION"
+            else []
+        )
 
         return Cargo_Observation(
             text=obs_text,
@@ -549,13 +671,13 @@ class CargoComplianceEnv(Environment):
             available_documents=available_documents,
             available_regulators=available_regulators,
             manifest={},
-            documents= state.extraction_data.get("documents", []),
+            documents=state.extraction_data.get("documents", []),
             regulator=state.extraction_data.get("regulator"),
             duties=state.extraction_data.get("duties", []),
             laws=state.extraction_data.get("laws", []),
             history=state.history,
             step=state.steps,
-            reward=actual_step_reward, 
+            reward=actual_step_reward,
             total_reward=state.total_reward,
             grader_score=grader_score,
         )
@@ -570,19 +692,22 @@ async def reset(request: Optional[ResetRequest] = None):
     """Initialize a session and return the starting observation."""
     # Safely get the task_id if the request body was provided
     req_task_id = request.task_id if request else None
-    
+
     # Pass it into the environment via the options dictionary
     obs, info = env.reset(options={"task_id": req_task_id})
-    
+
     # Return both the observation and the session_id so the agent can track it
     return {"observation": obs, "session_id": info["session_id"]}
+
 
 @app.post("/step")
 async def step(action: Cargo_Action, session_id: str = None) -> Dict[str, Any]:
     target_id = session_id or env.last_session_id
 
     if not target_id:
-        raise HTTPException(status_code=400, detail="No active session. Call /reset first.")
+        raise HTTPException(
+            status_code=400, detail="No active session. Call /reset first."
+        )
 
     try:
         obs = await env.step(target_id, action)
@@ -595,6 +720,7 @@ async def step(action: Cargo_Action, session_id: str = None) -> Dict[str, Any]:
         }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
+
 
 @app.get("/tasks")
 async def get_tasks() -> List[Dict[str, Any]]:
@@ -615,12 +741,14 @@ async def get_tasks() -> List[Dict[str, Any]]:
         for task_id, spec in TASK_SPECS.items()
     ]
 
+
 @app.get("/metadata")
 async def metadata() -> Dict[str, str]:
     return {
         "name": "cargo-compliance-challenge",
         "description": "Deterministic bilateral cargo-compliance benchmark with three graded tasks.",
     }
+
 
 @app.get("/schema")
 async def schema() -> Dict[str, Any]:
@@ -629,6 +757,7 @@ async def schema() -> Dict[str, Any]:
         "observation": Cargo_Observation.model_json_schema(),
         "state": Cargo_State.model_json_schema(),
     }
+
 
 @app.get("/health")
 async def health() -> Dict[str, str]:

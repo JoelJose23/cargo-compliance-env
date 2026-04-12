@@ -35,21 +35,67 @@ except Exception as e:  # pragma: no cover
         "openenv is required for the web interface. Install dependencies with '\n    uv sync\n'"
     ) from e
 
-try:
-    from ..models import Cargo_Action, Cargo_Observation
-    from .environment import CargoComplianceEnv
-except ModuleNotFoundError:
-    from models import Cargo_Action, Cargo_Observation
-    from server.environment import CargoComplianceEnv
+import sys
+from pathlib import Path
 
+ROOT = Path(__file__).resolve().parent.parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+try:
+    from models import Cargo_Action, Cargo_Observation
+    from environment import CargoComplianceEnv
+except ImportError as e:
+    # Last resort fallback
+    raise ImportError(
+        "Could not import environment components. "
+        "Make sure you're running from the environment directory "
+        f"or that {ROOT} is in your PYTHONPATH. Error: {e}"
+    )
+
+TASKS = [
+    {
+        "id": "cargo_food",
+        "task_id": "cargo_food",
+        "difficulty": "easy",
+        "objective": "Extract qty/category/origin/destination and select the exact food laws, regulator, and documents.",
+        "grader": "deterministic_programmatic",
+        "grader_type": "programmatic",
+        "has_grader": True,
+        "score_range": [0.01, 0.99],
+        "pass_score": 0.70,
+    },
+    {
+        "id": "cargo_electronics",
+        "task_id": "cargo_electronics",
+        "difficulty": "medium",
+        "objective": "Identify the correct route and choose the matching electronics compliance package without extra laws.",
+        "grader": "deterministic_programmatic",
+        "grader_type": "programmatic",
+        "has_grader": True,
+        "score_range": [0.01, 0.99],
+        "pass_score": 0.78,
+    },
+    {
+        "id": "cargo_pharma",
+        "task_id": "cargo_pharma",
+        "difficulty": "hard",
+        "objective": "Handle sparse pharma manifests and select the exact required laws, regulator, and paperwork.",
+        "grader": "deterministic_programmatic",
+        "grader_type": "programmatic",
+        "has_grader": True,
+        "score_range": [0.01, 0.99],
+        "pass_score": 0.85,
+    },
+]
 
 # Create the app with web interface and README integration
 app = create_app(
+    CargoComplianceEnv,
     Cargo_Action,
     Cargo_Observation,
-    CargoComplianceEnv,
-    env_name="cargo_compliance_env",
-    max_concurrent_envs=1,  # increase this number to allow more concurrent WebSocket sessions
+    env_name="cargo-compliance",
+    max_concurrent_envs=10,  # increase this number to allow more concurrent WebSocket sessions
 )
 
 
@@ -67,18 +113,17 @@ def main(host: str = "0.0.0.0", port: int = 7860):
         port: Port number to listen on (default: 8000)
 
     For production deployments, consider using uvicorn directly with
-    multiple workers:
-        uvicorn my_env.server.app:app --workers 4
+        multiple workers:
+            uvicorn my_env.server.app:app --workers 4
     """
     import uvicorn
 
     uvicorn.run(app, host=host, port=port)
 
+@app.get("/tasks")
+def get_tasks():
+    return {"tasks": TASKS}
+
 
 if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--port", type=int, default=8000)
-    args = parser.parse_args()
-    main(port=args.port)
+    main()

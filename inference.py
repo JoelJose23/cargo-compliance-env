@@ -509,7 +509,6 @@ async def main() -> None:
                 f"Extraction: {json.dumps(obs.current_extraction)}\nOptions: {json.dumps(candidate_laws)}"
             ))
             selected_laws = _normalize_laws(law_pkg.get("laws"), candidate_laws)
-            print(f"[DEBUG] Laws selected by LLM: {selected_laws}", flush=True)
             #if not selected_laws:
                 # Fallback to exact names from available options if LLM output is unparseable.
                 #selected_laws = _available_law_names(candidate_laws)

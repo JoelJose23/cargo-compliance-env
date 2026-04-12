@@ -22,6 +22,12 @@ dependencies = [
     "pydantic"
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=4.0.0",
+]
+
 [project.scripts]
 # Validator-friendly multi-mode entry points
 server = "server.main:main"
